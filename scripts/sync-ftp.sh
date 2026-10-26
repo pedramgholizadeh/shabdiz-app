@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================
 # Shabdiz deploy helper — syncs backend/ to the host over FTP
-# Target: https://apps.webirox.ir/shabdiz
+# Target: https://apps.webiro.ir/shabdiz
 #
 # Usage:
 #   bash scripts/sync-ftp.sh           # dry-run (shows what would change)
