@@ -1,0 +1,19 @@
+# Rewrite everything to the front controller (Apache)
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+
+    # Serve real files (none expected, but just in case)
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    RewriteRule ^ index.php [QSA,L]
+</IfModule>
+
+# Never serve config / data
+<FilesMatch "^(config(\.example)?\.php|\.env.*)$">
+    Require all denied
+</FilesMatch>
+
+Options -Indexes

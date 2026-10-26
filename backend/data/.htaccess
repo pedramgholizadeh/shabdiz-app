@@ -1,0 +1,5 @@
+# Deny all direct access (Apache)
+Require all denied
+
+# nginx: deny this directory in the server block
+# location ^~ /shabdiz/data { deny all; }
