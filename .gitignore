@@ -47,3 +47,6 @@ app.*.map.json
 # Shabdiz backend secrets & local data
 backend/config.php
 backend/data/*.sqlite*
+
+# FTP credentials (never commit)
+scripts/ftp.env

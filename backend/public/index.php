@@ -13,7 +13,10 @@ error_reporting(E_ALL);
 
 $configPath = __DIR__ . '/../config.php';
 if (!file_exists($configPath)) {
-    Response::json(['error' => 'config_missing'], 500);
+    http_response_code(500);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(['error' => 'config_missing']);
+    exit;
 }
 $config = require $configPath;
 
@@ -45,11 +48,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
 }
 
 // ---- Routing ---------------------------------------------------------------
-$uri = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+// Preferred: clean URLs via rewrite. Fallback: /index.php?_route=/health
+// for hosts that don't apply .htaccess rewrites.
+$uri = ($_GET['_route'] ?? '')
+    ?: (parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/');
 
 // Strip the deployment subdirectory (e.g. /shabdiz) and any /index.php prefix
-$scriptDir = rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? ''), '/');
-if ($scriptDir && str_starts_with($uri, $scriptDir)) {
+$scriptDir = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '')), '/');
+if ($scriptDir && $scriptDir !== '/' && str_starts_with($uri, $scriptDir)) {
     $uri = substr($uri, strlen($scriptDir));
 }
 $uri = '/' . trim(preg_replace('#^/index\.php#', '', $uri), '/');
@@ -80,6 +86,16 @@ function route(string $method, string $uri, array $body, array $config, Auth $au
     // ---------- Health ----------
     if ($p0 === 'health') {
         Response::json(['ok' => true, 'service' => 'shabdiz', 'time' => gmdate('c')]);
+    }
+
+    // ---------- Root ----------
+    if ($p0 === null) {
+        Response::json([
+            'service' => 'shabdiz',
+            'version' => '2.0',
+            'health'  => 'health',
+            'api'     => 'api/{endpoint}',
+        ]);
     }
 
     // ---------- Geo / VPN gate (public) ----------

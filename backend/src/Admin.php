@@ -15,7 +15,7 @@ final class Admin
         }
         if ($page === 'logout') {
             setcookie('shabdiz_admin', '', time() - 3600, '/');
-            header('Location: admin');
+            header('Location: index.php?_route=/admin');
             exit;
         }
 
@@ -23,7 +23,7 @@ final class Admin
             if (str_starts_with($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json') || ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'fetch') {
                 Response::json(['error' => 'unauthorized'], 401);
             }
-            header('Location: login');
+            header('Location: index.php?_route=/admin/login');
             exit;
         }
 
@@ -61,7 +61,7 @@ final class Admin
                     'httponly' => true,
                     'samesite' => 'Lax',
                 ]);
-                header('Location: dashboard');
+                header('Location: index.php?_route=/admin/dashboard');
                 exit;
             }
             $error = 'رمز اشتباه است.';
@@ -188,7 +188,7 @@ HTML);
 
     private static function layout(string $title, string $content): string
     {
-        $nav = '<nav><a href="dashboard">داشبورد</a><a href="users">کاربران</a><a href="devices">دستگاه‌ها</a><a href="logout" class="danger">خروج</a></nav>';
+        $nav = '<nav><a href="index.php?_route=/admin/dashboard">داشبورد</a><a href="index.php?_route=/admin/users">کاربران</a><a href="index.php?_route=/admin/devices">دستگاه‌ها</a><a href="index.php?_route=/admin/logout" class="danger">خروج</a></nav>';
         return <<<HTML
 <!doctype html><html dir="rtl" lang="fa"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">

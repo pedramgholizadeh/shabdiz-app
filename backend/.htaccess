@@ -1,0 +1,29 @@
+# Shabdiz backend — works when uploaded as a subdirectory
+# (e.g. public_html/shabdiz) with no vhost changes needed.
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Never expose secrets or runtime data
+    RewriteRule ^(src|data)(/|$) - [F,L]
+
+    # Serve real files directly (nothing should be here except this shim)
+    RewriteCond %{REQUEST_FILENAME} -f
+    RewriteRule ^ - [L]
+
+    # Route everything else through the front controller
+    RewriteRule ^ index.php [QSA,L]
+</IfModule>
+
+# Belt & suspenders for the config file
+<FilesMatch "^(config(\.example)?\.php|\.env.*)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+Options -Indexes

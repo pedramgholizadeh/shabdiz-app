@@ -19,7 +19,9 @@
 
 ## استقرار روی `apps.webiro.ir/shabdiz`
 
-1. محتویات پوشه‌ی `backend/` را در `apps.webiro.ir/shabdiz` قرار دهید (پوشه‌ی `public` باید document root همان زیرپوشه باشد یا محتویات `public` را در ریشه‌ی `shabdiz` بگذارید).
+1. محتویات پوشه‌ی `backend/` را با اسکریپت `scripts/sync-ftp.sh --apply` در `shabdiz/` هاست قرار دهید. فایل ریشه‌ی `index.php` و `.htaccess` که همراه بک‌اند هست، همه‌ی درخواست‌ها را به `public/index.php` می‌برد — نیازی به تغییر تنظیمات هاست نیست.
+   - اگر هاست rewrite نداشت، مسیرها با فرم `index.php?_route=/health` هم کار می‌کنند.
+   - `config.php` آپلود نمی‌شود؛ فقط بار اول آن را دستی روی سرور بسازید.
 2. `config.example.php` را به `config.php` کپی کنید و مقادیر را تنظیم کنید:
    ```bash
    php -r "echo bin2hex(random_bytes(32));"   # برای app_secret
