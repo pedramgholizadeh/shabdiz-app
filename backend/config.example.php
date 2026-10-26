@@ -10,7 +10,7 @@ return [
     'app_secret' => getenv('SHABDIZ_APP_SECRET') ?: 'CHANGE-ME-IN-PRODUCTION',
 
     // Where the API is deployed (used in emails)
-    'app_url' => 'https://apps.webiro.ir/shabdiz',
+    'app_url' => 'https://apps.webirox.ir/shabdiz',
 
     // SQLite database file path (must be writable by PHP)
     'db_path' => __DIR__ . '/data/shabdiz.sqlite',
