@@ -17,7 +17,10 @@ use Shabdiz\Http\Controllers\Api\HealthController;
 use Shabdiz\Http\Controllers\Api\MovieController as ApiMovieController;
 use Shabdiz\Http\Controllers\Api\ScreeningController as ApiScreeningController;
 
-require dirname(__DIR__) . '/app/bootstrap.php';
+// In production this file is uploaded as <root>/index.php, so the app lives in
+// __DIR__/app; local serving (backend/public as docroot) keeps it one level up.
+$bootstrap = __DIR__ . '/app/bootstrap.php';
+require is_file($bootstrap) ? $bootstrap : dirname(__DIR__) . '/app/bootstrap.php';
 
 $router = new Router();
 
