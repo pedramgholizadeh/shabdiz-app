@@ -9,6 +9,7 @@ use Shabdiz\Core\Request;
 use Shabdiz\Core\Response;
 use Shabdiz\Repositories\PlaybackRepository;
 use Shabdiz\Repositories\ScreeningRepository;
+use Shabdiz\Repositories\WatchProgressRepository;
 use Shabdiz\Support\Jalali;
 
 final class ScreeningController
@@ -39,6 +40,13 @@ final class ScreeningController
             (int) $screening['screening_id'],
             Request::ip(),
             (string) ($_SERVER['HTTP_USER_AGENT'] ?? ''),
+        );
+        WatchProgressRepository::record(
+            (int) $user['id'],
+            (int) $screening['screening_id'],
+            (int) $screening['movie_id'],
+            (int) $state['position_seconds'],
+            (int) ($screening['duration_seconds'] ?? 0),
         );
 
         Response::ok([
@@ -74,6 +82,20 @@ final class ScreeningController
         $user = Auth::requireApiUser();
         $screening = self::screeningOrFail((int) ($params['id'] ?? 0));
         PlaybackRepository::heartbeat((int) $user['id'], (int) $screening['screening_id']);
+
+        // The client position is advisory and only feeds personal watch
+        // progress; it never moves the server-owned playback position.
+        $position = filter_var(Request::input('position_seconds'), FILTER_VALIDATE_INT);
+        if (is_int($position) && $position >= 0) {
+            WatchProgressRepository::record(
+                (int) $user['id'],
+                (int) $screening['screening_id'],
+                (int) $screening['movie_id'],
+                min($position, 24 * 3600),
+                (int) ($screening['duration_seconds'] ?? 0),
+            );
+        }
+
         Response::ok(['alive' => true]);
     }
 

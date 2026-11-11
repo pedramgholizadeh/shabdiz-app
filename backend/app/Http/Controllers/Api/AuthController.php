@@ -9,7 +9,9 @@ use Shabdiz\Core\Config;
 use Shabdiz\Core\Request;
 use Shabdiz\Core\Response;
 use Shabdiz\Repositories\OtpRepository;
+use Shabdiz\Repositories\PlaybackRepository;
 use Shabdiz\Repositories\UserRepository;
+use Shabdiz\Repositories\WatchProgressRepository;
 use Shabdiz\Support\Mailer;
 
 final class AuthController
@@ -63,6 +65,30 @@ final class AuthController
 
         OtpRepository::consume((int) $record['id']);
         $user = UserRepository::findOrCreate($email);
+
+        // A guest who just signed in carries their watch history over to the
+        // real account, then the throwaway identity is removed.
+        $guest = Auth::apiUser();
+        if ($guest !== null && (int) ($guest['is_guest'] ?? 0) === 1 && (int) $guest['id'] !== (int) $user['id']) {
+            WatchProgressRepository::reassign((int) $guest['id'], (int) $user['id']);
+            PlaybackRepository::reassign((int) $guest['id'], (int) $user['id']);
+            UserRepository::deleteGuest((int) $guest['id']);
+        }
+
+        $token = Auth::issueToken((int) $user['id']);
+
+        Response::ok([
+            'token' => $token,
+            'user' => UserRepository::publicPayload($user),
+        ]);
+    }
+
+    public static function guest(): void
+    {
+        $user = UserRepository::createGuest(Request::ip());
+        if ($user === null) {
+            Response::error('درخواست‌های مهمان از این آدرس بیش از حد مجاز است. بعداً تلاش کنید.', 429, 'rate_limited');
+        }
         $token = Auth::issueToken((int) $user['id']);
 
         Response::ok([
@@ -75,5 +101,11 @@ final class AuthController
     {
         $user = Auth::requireApiUser();
         Response::ok(['user' => UserRepository::publicPayload($user)]);
+    }
+
+    public static function history(): void
+    {
+        $user = Auth::requireApiUser();
+        Response::ok(['items' => WatchProgressRepository::historyForUser((int) $user['id'])]);
     }
 }

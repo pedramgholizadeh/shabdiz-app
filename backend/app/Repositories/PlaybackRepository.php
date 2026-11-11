@@ -36,4 +36,30 @@ final class PlaybackRepository
             [$userId, $screeningId],
         );
     }
+
+    /** Distinct viewers with a fresh heartbeat on a screening that is live right now. */
+    public static function liveViewers(): int
+    {
+        $row = Database::first(
+            'SELECT COUNT(DISTINCT ps.user_id) AS total
+             FROM playback_sessions ps
+             JOIN screenings s ON s.id = ps.screening_id
+             WHERE ps.last_heartbeat_at > DATE_SUB(UTC_TIMESTAMP(), INTERVAL 90 SECOND)
+               AND s.starts_at_utc <= UTC_TIMESTAMP()
+               AND s.ends_at_utc > UTC_TIMESTAMP()',
+        );
+        return (int) ($row['total'] ?? 0);
+    }
+
+    /** Move a guest's sessions onto the real account before the guest row is deleted. */
+    public static function reassign(int $guestId, int $userId): void
+    {
+        Database::execute(
+            'DELETE ps FROM playback_sessions ps
+             JOIN playback_sessions keep ON keep.user_id = ? AND keep.screening_id = ps.screening_id
+             WHERE ps.user_id = ?',
+            [$userId, $guestId],
+        );
+        Database::execute('UPDATE playback_sessions SET user_id = ? WHERE user_id = ?', [$userId, $guestId]);
+    }
 }

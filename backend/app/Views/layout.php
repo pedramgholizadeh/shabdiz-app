@@ -12,6 +12,7 @@ $navItems = [
     ['path' => 'admin', 'label' => 'داشبورد', 'icon' => '◈'],
     ['path' => 'admin/movies', 'label' => 'فیلم‌ها', 'icon' => '▤'],
     ['path' => 'admin/screenings', 'label' => 'سانس‌های پخش', 'icon' => '◷'],
+    ['path' => 'admin/watching', 'label' => 'تماشاها', 'icon' => '◐'],
     ['path' => 'admin/users', 'label' => 'کاربران', 'icon' => '◎'],
 ];
 ?>

@@ -9,6 +9,7 @@
     <div class="stat"><span>فیلم‌ها</span><strong><?= fa_num($stats['movies']) ?></strong></div>
     <div class="stat"><span>سانس‌های ثبت‌شده</span><strong><?= fa_num($stats['screenings']) ?></strong></div>
     <div class="stat"><span>کاربران</span><strong><?= fa_num($stats['users']) ?></strong></div>
+    <div class="stat"><span>در حال تماشا</span><strong class="<?= $stats['watching'] > 0 ? 'live' : '' ?>" style="<?= $stats['watching'] > 0 ? 'color:var(--red)' : '' ?>"><?= fa_num($stats['watching']) ?></strong></div>
 </div>
 
 <div class="card">

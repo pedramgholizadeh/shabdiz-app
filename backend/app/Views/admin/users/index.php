@@ -28,7 +28,10 @@
                     <td><?= e($user['name']) ?></td>
                     <td dir="ltr" style="text-align:right"><?= e((string) $user['created_at']) ?></td>
                     <td dir="ltr" style="text-align:right"><?= e((string) ($user['last_seen_at'] ?? '—')) ?></td>
-                    <td><span class="badge <?= (int) $user['is_active'] === 1 ? 'upcoming' : 'ended' ?>"><?= (int) $user['is_active'] === 1 ? 'فعال' : 'غیرفعال' ?></span></td>
+                    <td>
+                        <span class="badge <?= (int) $user['is_active'] === 1 ? 'upcoming' : 'ended' ?>"><?= (int) $user['is_active'] === 1 ? 'فعال' : 'غیرفعال' ?></span>
+                        <?php if ((int) ($user['is_guest'] ?? 0) === 1): ?><span class="badge ended">مهمان</span><?php endif; ?>
+                    </td>
                 </tr>
             <?php endforeach; ?>
             </tbody>
