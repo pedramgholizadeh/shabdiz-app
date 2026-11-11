@@ -49,8 +49,10 @@ Endpoints marked **Auth** require:
 Authorization: Bearer <token>
 ```
 
-Tokens are issued by `POST /auth/verify-otp`, valid for 30 days, and stored server-side only as a
-SHA-256 hash. Treat them as opaque strings.
+Tokens are issued by `POST /auth/verify-otp` (email sign-in) or `POST /guest` (guest session),
+valid for 30 days, and stored server-side only as a SHA-256 hash. Treat them as opaque strings.
+Signing in with OTP while holding a guest token migrates the guest's watch history to the real
+account.
 
 ---
 
@@ -94,6 +96,31 @@ Rules:
 - Code TTL is `OTP_TTL_SECONDS` (60–900, default 300).
 - Codes are stored as HMAC-SHA256 digests, never plaintext.
 - Delivery failure → `503 mail_failed`.
+- Delivery order is configured by `MAIL_DRIVER`: `resend` (default) tries the Resend API, then the
+  host SMTP account, then PHP `mail()`; `smtp` and `mail` skip earlier channels; `log` writes the
+  code to the private mail log (staging only).
+
+---
+
+## `POST /guest`
+
+Public. Creates a throwaway guest identity so users can browse and watch without signing in.
+Login is never forced. Throttled per IP (12 guests per hour) → `429 rate_limited`.
+
+Response `200` (same shape as `verify-otp`):
+
+```json
+{
+  "ok": true,
+  "data": {
+    "token": "64-hex-characters",
+    "user": { "id": 41, "email": "", "name": "مهمان", "is_guest": true, "created_at": "…" }
+  }
+}
+```
+
+When the guest later signs in via `verify-otp` with this token attached, their watch history and
+sessions move to the real account and the guest row is deleted.
 
 ---
 
@@ -133,8 +160,39 @@ Failures: `422 validation_error`, `422 invalid_code`.
 **Auth.** Returns the current user.
 
 ```json
-{ "ok": true, "data": { "user": { "id": 12, "email": "viewer@example.com", "name": "", "created_at": "2026-11-11 14:02:10" } } }
+{ "ok": true, "data": { "user": { "id": 12, "email": "viewer@example.com", "name": "", "is_guest": false, "created_at": "2026-11-11 14:02:10" } } }
 ```
+
+---
+
+## `GET /me/history`
+
+**Auth.** The caller's personal watch progress, newest first. Powers the in-app user panel.
+
+```json
+{
+  "ok": true,
+  "data": {
+    "items": [
+      {
+        "screening_id": 7,
+        "movie_slug": "the-odyssey",
+        "movie_title_fa": "ادیسه",
+        "cover_url": "https://…/cover.jpg",
+        "position_seconds": 5400,
+        "duration_seconds": 9720,
+        "percent": 55,
+        "completed": false,
+        "starts_at_label": "شنبه ۳۰ آبان · ۲۱:۰۰",
+        "last_watched_at": "2026-11-21 19:44:02"
+      }
+    ]
+  }
+}
+```
+
+Progress rows are created by `join` and updated by heartbeats that carry `position_seconds`.
+`completed` becomes true at ≥ 95 % of the movie duration. Source/subtitle URLs are never included.
 
 ---
 
@@ -258,7 +316,13 @@ The client calls this every 15 seconds and seeks only when drift exceeds 2.5 sec
 
 ## `POST /screenings/{id}/heartbeat`
 
-**Auth.** Presence signal, called every 30 seconds during playback.
+**Auth.** Presence signal, called every 30 seconds during playback. May carry the player position,
+which is recorded as personal watch progress only — it never moves the server-owned playback
+position.
+
+```json
+{ "position_seconds": 1920 }
+```
 
 ```json
 { "ok": true, "data": { "alive": true } }
@@ -283,7 +347,7 @@ every 15 s:
   if abs(local - expected) > 2.5: seek(expected)
 
 every 30 s:
-  POST /screenings/{id}/heartbeat
+  POST /screenings/{id}/heartbeat {position_seconds: player.position}
 ```
 
 Because the server derives position from the stored UTC start time, a viewer who joins at 21:32
@@ -308,6 +372,7 @@ The admin panel lives under `/admin` and uses session cookies plus CSRF tokens:
 | `GET` | `/admin/screenings` | Screening list |
 | `GET` | `/admin/screenings/new` | Create form |
 | `POST` | `/admin/screenings` | Store screening (Jalali date + time → UTC) |
+| `GET` | `/admin/watching` | Per-user watch progress |
 | `GET` | `/admin/users` | Registered users |
 
 Admin responses are HTML, not JSON. API clients must not depend on these routes.

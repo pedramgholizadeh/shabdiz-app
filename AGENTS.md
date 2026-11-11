@@ -27,14 +27,15 @@ is infrastructure-complete, not feature-complete: keep the architecture intact w
 
 | Area | State |
 | --- | --- |
-| Flutter app | Splash, OTP auth, timeline, movie details, synchronized libmpv player on Android/Windows/macOS/Linux |
-| Admin panel | Login, dashboard, movie create/list, screening create/list, users list |
-| API | Health, OTP, me, timeline, movie detail, join, playback timeline, heartbeat |
-| Database | Migrations applied by the installer; seed categories |
-| Landing page | Persian, RTL, static, deployed to GitHub Pages |
+| Flutter app | Splash, OTP auth, optional guest mode, timeline, movie details, account panel with watch history, synchronized libmpv player on Android (incl. Android TV)/Windows/macOS/Linux |
+| Admin panel | Login, dashboard (with live viewer count), movie create/list, screening create/list, watch-progress list, users list |
+| API | Health, OTP, guest session, me, me/history, timeline, movie detail, join, playback timeline, heartbeat with watch progress |
+| Database | Migrations applied by the installer; seed categories; guest users; per-user watch progress |
+| Mail | OTP delivery chain: Resend API → host SMTP → PHP `mail()` (configurable via `MAIL_DRIVER`) |
+| Landing page | Persian, RTL, static, per-OS download grid, deployed to GitHub Pages |
 | Deployment | FTP via `deploy.sh` with tokenized self-deleting installer |
-| CI | APK build/release, desktop matrix (macOS arm64/x64, Windows x64, Linux arm64/x64), Pages |
-| Not built yet | Watch history, notifications, room chat, profile editing, password reset |
+| CI | APK build/release (universal + per-ABI, also for Android TV), desktop matrix (macOS arm64/x64, Windows x64, Linux arm64/x64), Pages |
+| Not built yet | Notifications, room chat, profile editing, password reset |
 
 Treat the table as a map, not a promise. Update it when a row changes.
 
@@ -55,10 +56,11 @@ app/                        Flutter application (Android, Windows, macOS, Linux)
   lib/data/models/          immutable API models with fromJson
   lib/data/repositories/    API calls + Riverpod providers
   lib/features/splash/      brand animation and session restore
-  lib/features/auth/        email + OTP flow
-  lib/features/timeline/    screening cards, newest first
+  lib/features/auth/        email + OTP flow, optional guest sign-in
+  lib/features/account/     user panel: identity, watch history, sign-in/out
+  lib/features/timeline/    screening cards, newest first, responsive grid on wide screens
   lib/features/movie/       detail page
-  lib/features/player/      media_kit player, seek/resync/heartbeat
+  lib/features/player/      media_kit player, seek/resync/heartbeat, D-pad controls
   lib/widgets/              shared visual components
   test/                     pure-Dart unit tests
   android/                  Android runner and signing config
@@ -70,8 +72,8 @@ backend/                    PHP 8 admin panel + JSON API
   app/bootstrap.php         root constant, autoloader, helpers, .env, session, headers
   app/Core/                 Env, Config, Database, Request, Response, Router, View, Auth, Flash
   app/Http/Controllers/     Admin/* and Api/* controllers (static methods)
-  app/Repositories/         SQL access; one class per aggregate
-  app/Support/              Jalali, Mailer, Installer
+  app/Repositories/         SQL access; one class per aggregate (incl. WatchProgressRepository)
+  app/Support/              Jalali, Mailer (Resend→SMTP→mail chain), Smtp, Installer
   app/Views/                server-rendered admin templates (RTL, no build step)
   migrations/               additive, ordered SQL migrations
   public/index.php          front controller and route table
@@ -149,7 +151,9 @@ python3 -m http.server 4173 -d site
 - Status is derived from UTC now (`upcoming`, `live`, `ended`); never trust a client clock.
 - `position_seconds = max(0, now − starts_at)` while live.
 - The client seeks on join, re-syncs every 15 seconds, and corrects drift above 2.5 seconds.
-- Heartbeats are advisory presence signals; they must not affect playback position.
+- Heartbeats are advisory presence signals; they must not affect playback position. A heartbeat MAY
+  carry the player position to record *personal* watch progress (`watch_progress`), which never
+  feeds back into the server-owned sync position.
 
 ### Jalali dates
 
@@ -166,6 +170,16 @@ python3 -m http.server 4173 -d site
 - API auth is a bearer token; tokens are stored only as SHA-256 hashes.
 - Do not leak source/subtitle URLs from list endpoints. They are released only by `join`.
 - Scope every user-owned query by `user_id`.
+
+### Auth and guests
+
+- Signing in is never forced. Guests receive a real token-bearing user row (`POST /api/guest`,
+  `is_guest = 1`, throttled per IP) so join/heartbeat/history work unchanged.
+- On OTP sign-in with a guest token attached, the guest's watch history and sessions are reassigned
+  to the real account and the guest row is deleted (`WatchProgressRepository::reassign`).
+- OTP delivery order comes from `MAIL_DRIVER`: `resend` (default) → Resend API, host SMTP, PHP
+  `mail()`; `smtp` → SMTP then `mail()`; `mail` → `mail()` only; `log` → staging file. The code is
+  only ever written to the log in `log` mode.
 
 ### Admin
 

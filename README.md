@@ -36,11 +36,14 @@ The project ships three things:
 - **Real player.** `media_kit` / libmpv with hardware acceleration, network buffering, reconnect, and
   subtitle tracks loaded from URL. Immersive landscape playback on phones; a windowed player with
   keyboard shortcuts (Space, ←/→, Esc) on desktop.
-- **Cross-platform.** One codebase builds for Android 6+, Windows x64, macOS (Apple Silicon and
-  Intel), and Linux x64/arm64. Every build talks to the same API at
-  `https://apps.webiro.ir/shabdiz/api`.
-- **Admin panel.** Create movies and screenings, set Jalali date/time, stream and subtitle URLs, and
-  browse registered users.
+- **Cross-platform.** One codebase builds for Android 6+ (phones and Android TV from the same APK),
+  Windows x64, macOS (Apple Silicon and Intel), and Linux x64/arm64. Every build talks to the same
+  API at `https://apps.webiro.ir/shabdiz/api`.
+- **Optional sign-in.** Watch as a guest without an account, or sign in with email + one-time code;
+  guest watch history moves to the real account on sign-in. OTP mail goes out through the Resend
+  API with the host SMTP and PHP `mail()` as fallbacks.
+- **Admin panel.** Create movies and screenings, set Jalali date/time, stream and subtitle URLs,
+  see who is watching which movie and how far they got, and browse registered users.
 - **Deploy over FTP.** `deploy.sh` builds the server `.env`, uploads code, runs migrations through a
   one-time tokenized installer, and verifies the deployment with HTTP probes.
 - **CI-built binaries.** GitHub Actions analyzes, tests, builds, signs when secrets are present, and
@@ -48,7 +51,8 @@ The project ships three things:
 
 ## Screens
 
-The app flow is: **splash → OTP sign-in → timeline → movie detail → synchronized player**.
+The app flow is: **splash → timeline (guest or signed-in) → movie detail → synchronized player**,
+with an account panel for identity and watch history. Signing in with email + OTP is optional.
 
 ## Architecture
 
@@ -192,9 +196,14 @@ never written into the repository or the static site.
 
 ```bash
 cp config.env.example config.env
-# Fill FTP, database, and admin values.
+# Fill FTP, database, admin values, and the mail keys (RESEND_API_KEY and/or SMTP_*).
 bash deploy.sh all
 ```
+
+OTP delivery is configured by `MAIL_DRIVER` in `config.env`: `resend` (default) sends through the
+Resend API and falls back to the host SMTP account (`SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/
+`SMTP_PASS`/`SMTP_ENCRYPTION`), then to PHP `mail()`. Channels without credentials are skipped; use
+`MAIL_DRIVER=log` on staging (codes land in `storage/logs/mail.log`).
 
 What each command does:
 
