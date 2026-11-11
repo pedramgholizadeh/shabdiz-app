@@ -73,11 +73,13 @@ jobs:
 
       - name: Build release APK
         working-directory: app
-        run: flutter build apk --release
+        # Same production API base the desktop workflow bakes in, so every
+        # release artifact talks to production without configuration.
+        run: flutter build apk --release --dart-define=API_BASE_URL=https://apps.webiro.ir/shabdiz/api
 
       - name: Build split-per-ABI APKs
         working-directory: app
-        run: flutter build apk --release --split-per-abi
+        run: flutter build apk --release --split-per-abi --dart-define=API_BASE_URL=https://apps.webiro.ir/shabdiz/api
 
       - name: Upload universal APK
         uses: actions/upload-artifact@v4
