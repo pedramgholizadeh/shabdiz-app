@@ -295,17 +295,30 @@ Authenticated endpoints expect `Authorization: Bearer <token>`.
 
 ## Contributing
 
-Contributions are welcome. Read [`AGENTS.md`](AGENTS.md) for the architecture, conventions, and
-verification commands before opening a pull request.
+Contributions are welcome — bug reports, copy improvements, translations, and new features on the
+app or backend alike. All development happens on GitHub:
 
-```bash
-cd app && flutter analyze && flutter test
-find backend -name '*.php' -print0 | xargs -0 -n1 php -l
-bash -n deploy.sh
-```
+1. **Fork and clone** the repository, then create a branch for your change.
+2. **Read [`AGENTS.md`](AGENTS.md)** first — it documents the architecture, the server-is-the-clock
+   and security invariants, naming conventions, and commit style. Keep those intact.
+3. **Set up locally** (see [Quick start](#quick-start)): the Flutter app runs on macOS, Windows, or
+   Linux; the backend needs PHP 8.1+ and MySQL, served with `php -S 127.0.0.1:8080 -t public
+   public/index.php`.
+4. **Run the checks** before opening the pull request:
 
-Please keep changes focused, keep secrets out of the repository, and include tests for behavior that
-can regress.
+   ```bash
+   cd app && flutter analyze && flutter test
+   find backend -name '*.php' -print0 | xargs -0 -n1 php -l
+   bash -n deploy.sh
+   ```
+
+5. **Open a pull request** against `master`. Write scoped, imperative commits
+   (e.g. `player: resync on app resume`), keep changes focused, never commit secrets, and include
+   tests for behavior that can regress. CI runs analyze + tests on every pull request.
+
+Good places to start are the open [issues](https://github.com/pedramgholizadeh/shabdiz-app/issues)
+and the roadmap in [`AGENTS.md`](AGENTS.md). For UI changes, actually run the app and exercise both
+the happy path and the edge case you touched.
 
 ## License
 
