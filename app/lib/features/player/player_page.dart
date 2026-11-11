@@ -158,6 +158,16 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     }
   }
 
+  /// The player is a top-level route: pop only when there is something to
+  /// pop, otherwise return to the timeline.
+  void _exitPlayer() {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/timeline');
+    }
+  }
+
   Future<void> _resync() async {
     final player = _player;
     if (player == null) return;
@@ -243,7 +253,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
         _showControlsTemporarily();
         return KeyEventResult.handled;
       }
-      context.pop();
+      _exitPlayer();
       return KeyEventResult.handled;
     }
 
@@ -292,7 +302,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
               child: CircularProgressIndicator(color: AppColors.gold),
             )
           : _error != null
-              ? _PlayerError(message: _error!, onRetry: _load)
+              ? _PlayerError(message: _error!, onRetry: _load, onBack: _exitPlayer)
               : Focus(
                   autofocus: true,
                   onKeyEvent: _handleKey,
@@ -362,7 +372,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
                           hasSubtitle:
                               (_ticket?.subtitleUrl.isNotEmpty ?? false) &&
                                   _subtitleTrack != null,
-                          onClose: () => context.pop(),
+                          onClose: _exitPlayer,
                           onTogglePlay: _togglePlay,
                           onToggleSubtitle: _toggleSubtitle,
                         ),
@@ -576,10 +586,11 @@ class _SyncBadge extends StatelessWidget {
 }
 
 class _PlayerError extends StatelessWidget {
-  const _PlayerError({required this.message, required this.onRetry});
+  const _PlayerError({required this.message, required this.onRetry, required this.onBack});
 
   final String message;
   final VoidCallback onRetry;
+  final VoidCallback onBack;
 
   @override
   Widget build(BuildContext context) {
@@ -607,7 +618,7 @@ class _PlayerError extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   TextButton(
-                    onPressed: () => context.pop(),
+                    onPressed: onBack,
                     child: const Text(
                       'بازگشت',
                       style: TextStyle(
