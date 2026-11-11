@@ -289,6 +289,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${{ github.ref_name }}"
-          gh release view "$TAG" -R "${{ github.repository }}" >/dev/null 2>&1 || \
-            gh release create "$TAG" -R "${{ github.repository }}" --title "ShabDiz $TAG" --generate-notes
+          for attempt in 1 2 3 4 5; do
+            if gh release view "$TAG" -R "${{ github.repository }}" >/dev/null 2>&1; then break; fi
+            if gh release create "$TAG" -R "${{ github.repository }}" --title "ShabDiz $TAG" --generate-notes; then break; fi
+            sleep 10
+          done
           gh release upload "$TAG" dist/* -R "${{ github.repository }}" --clobber
