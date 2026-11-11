@@ -1,0 +1,7 @@
+# Uploaded files are data only — never execute scripts here.
+<FilesMatch "\.(php|phtml|phar|cgi|pl|py|sh)$">
+    Require all denied
+</FilesMatch>
+<IfModule mod_autoindex.c>
+    Options -Indexes
+</IfModule>

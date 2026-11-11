@@ -1,0 +1,6 @@
+// Copy to android/key.properties for local release builds.
+// Never commit the real file or the keystore.
+storePassword=changeme
+keyPassword=changeme
+keyAlias=shabdiz
+storeFile=/absolute/path/to/shabdiz-release.jks

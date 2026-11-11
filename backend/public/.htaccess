@@ -1,0 +1,28 @@
+DirectoryIndex index.php
+
+<IfModule mod_autoindex.c>
+    Options -Indexes
+</IfModule>
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Preserve the Authorization header for the Bearer-token API.
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # Never serve private application paths.
+    RewriteRule ^(app|config|migrations|scripts|storage)(/|$) - [F,L]
+
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ index.php [L]
+</IfModule>
+
+<FilesMatch "^\.(env|git|htaccess|DS_Store)$">
+    Require all denied
+</FilesMatch>
+
+<Files "composer.json">
+    Require all denied
+</Files>

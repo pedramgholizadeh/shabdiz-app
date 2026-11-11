@@ -1,0 +1,537 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>شب‌دیز | سینمای هم‌زمان، هر شب</title>
+  <meta name="description" content="شب‌دیز یک اپلیکیشن اوپن‌سورس اندروید برای تماشای هم‌زمان فیلم است؛ با ورود امن، تقویم شمسی، پلیر VLC و زیرنویس فارسی.">
+  <meta name="theme-color" content="#08080c">
+  <meta property="og:title" content="شب‌دیز | سینمای هم‌زمان، هر شب">
+  <meta property="og:description" content="فیلم‌ها را سر ساعت، همراه با بقیه تماشا کن. اوپن‌سورس، اندروید ۶ و بالاتر.">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="fa_IR">
+  <meta property="og:url" content="https://pedramgholizadeh.github.io/shabdiz-app/">
+  <link rel="canonical" href="https://pedramgholizadeh.github.io/shabdiz-app/">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23e8b86d'/%3E%3Cpath d='M20 46V18l24 14z' fill='%2308080c'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/aos@2.3.1/dist/aos.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Vazirmatn', 'Tahoma', 'sans-serif'] },
+          colors: {
+            night: '#08080c',
+            surface: '#12121a',
+            line: '#2a2a38',
+            gold: '#e8b86d',
+            golddeep: '#c9964a',
+            muted: '#9a9aa8',
+            live: '#e05b5b'
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    html { scroll-behavior: smooth; }
+    body { background: #08080c; color: #f5f5f7; overflow-x: hidden; }
+    ::selection { background: rgba(232,184,109,.25); }
+    .grain::before {
+      content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 1; opacity: .035;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+    #webgl { position: fixed; inset: 0; z-index: 0; opacity: .9; pointer-events: none; }
+    main, header, footer { position: relative; z-index: 2; }
+    .glass { background: rgba(18,18,26,.65); backdrop-filter: blur(18px); }
+    .gold-text {
+      background: linear-gradient(120deg, #f3d9ab 0%, #e8b86d 45%, #c9964a 100%);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .gold-border { border: 1px solid rgba(232,184,109,.28); }
+    .glow { box-shadow: 0 0 0 1px rgba(232,184,109,.1), 0 30px 90px -30px rgba(232,184,109,.35); }
+    .poster {
+      background:
+        radial-gradient(120% 90% at 20% 0%, rgba(232,184,109,.35), transparent 55%),
+        linear-gradient(165deg, #1b1b26 0%, #0b0b10 100%);
+    }
+    .poster-2 {
+      background:
+        radial-gradient(110% 90% at 80% 10%, rgba(96,132,255,.35), transparent 55%),
+        linear-gradient(165deg, #171a2a 0%, #090a10 100%);
+    }
+    .poster-3 {
+      background:
+        radial-gradient(110% 90% at 30% 20%, rgba(224,91,91,.32), transparent 55%),
+        linear-gradient(165deg, #231417 0%, #0b0809 100%);
+    }
+    .hairline { background: linear-gradient(90deg, transparent, rgba(232,184,109,.5), transparent); height: 1px; }
+    .marquee { animation: marquee 32s linear infinite; }
+    @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(50%); } }
+    .float { animation: float 7s ease-in-out infinite; }
+    @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
+    details summary::-webkit-details-marker { display: none; }
+    details[open] .chev { transform: rotate(180deg); }
+    .chev { transition: transform .25s ease; }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+      #webgl { display: none; }
+    }
+  </style>
+</head>
+<body class="font-sans antialiased grain">
+  <canvas id="webgl" aria-hidden="true"></canvas>
+
+  <header class="sticky top-0 z-40 glass border-b border-line/60">
+    <div class="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between">
+      <a href="#top" class="flex items-center gap-3">
+        <span class="w-9 h-9 rounded-xl bg-gradient-to-br from-gold to-golddeep grid place-items-center">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="#08080c"><path d="M8 5v14l11-7z"/></svg>
+        </span>
+        <span class="font-extrabold text-lg">شب‌دیز</span>
+      </a>
+      <nav class="hidden md:flex items-center gap-7 text-sm text-muted">
+        <a class="hover:text-white transition" href="#features">امکانات</a>
+        <a class="hover:text-white transition" href="#how">چطور کار می‌کند</a>
+        <a class="hover:text-white transition" href="#timeline">برنامه پخش</a>
+        <a class="hover:text-white transition" href="#opensource">اوپن‌سورس</a>
+      </nav>
+      <a href="https://github.com/pedramgholizadeh/shabdiz-app/releases/latest"
+         class="inline-flex items-center gap-2 rounded-xl bg-gold text-night px-4 py-2.5 text-xs font-bold hover:bg-[#f0c886] transition">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14"/></svg>
+        دریافت APK
+      </a>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="relative min-h-[92vh] flex items-center">
+      <div class="max-w-6xl mx-auto px-5 py-24 grid lg:grid-cols-[1.1fr_.9fr] gap-16 items-center">
+        <div>
+          <div data-aos="fade-up" class="inline-flex items-center gap-2 rounded-full border border-line bg-surface/70 px-4 py-1.5 text-[11px] text-muted">
+            <span class="w-1.5 h-1.5 rounded-full bg-gold"></span>
+            اوپن‌سورس · ساخته‌شده برای شب‌های سینمایی
+          </div>
+          <h1 data-aos="fade-up" data-aos-delay="80" class="mt-6 text-[2.7rem] leading-[1.25] sm:text-6xl sm:leading-[1.2] font-extrabold tracking-tight">
+            سینمای <span class="gold-text">هم‌زمان</span>،<br>هر شب در شب‌دیز
+          </h1>
+          <p data-aos="fade-up" data-aos-delay="160" class="mt-6 max-w-xl text-sm sm:text-base leading-8 text-muted">
+            یک ساعت مشخص، یک فیلم انتخابی و تماشاگرانی که همه هم‌زمان وارد سالن می‌شوند.
+            اگر ساعت ۲۱:۳۲ وارد شوی، فیلم از دقیقه ۳۲ ادامه پیدا می‌کند؛ دقیقاً کنار بقیه.
+          </p>
+          <div data-aos="fade-up" data-aos-delay="240" class="mt-9 flex flex-wrap items-center gap-3">
+            <a href="https://github.com/pedramgholizadeh/shabdiz-app/releases/latest"
+               class="inline-flex items-center gap-2 rounded-xl bg-gold text-night px-6 py-3.5 text-sm font-extrabold glow hover:bg-[#f0c886] transition">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M17.5 12.3c0-2 1.6-3 1.7-3.1-.9-1.4-2.4-1.6-2.9-1.6-1.2-.1-2.4.7-3 .7-.6 0-1.6-.7-2.6-.7-1.3 0-2.6.8-3.3 2-1.4 2.4-.4 6 1 8 .7 1 1.4 2 2.5 2 1 0 1.4-.6 2.6-.6s1.5.6 2.6.6c1.1 0 1.8-1 2.4-1.9.8-1.1 1.1-2.2 1.1-2.3-.1 0-2.1-.8-2.1-3.1zM15.6 6.1c.5-.7.9-1.6.8-2.6-.8 0-1.8.5-2.4 1.2-.5.6-1 1.5-.8 2.5.9.1 1.8-.4 2.4-1.1z"/></svg>
+              دانلود اپلیکیشن اندروید
+            </a>
+            <a href="https://github.com/pedramgholizadeh/shabdiz-app"
+               class="inline-flex items-center gap-2 rounded-xl border border-line bg-surface/60 px-5 py-3.5 text-sm font-bold text-white hover:border-gold/50 transition">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.7.5.5 5.7.5 12c0 5 3.3 9.3 7.8 10.8.6.1.8-.2.8-.6v-2c-3.2.7-3.8-1.4-3.8-1.4-.5-1.3-1.3-1.6-1.3-1.6-1-.7.1-.7.1-.7 1.1.1 1.7 1.2 1.7 1.2 1 1.7 2.7 1.2 3.4.9.1-.7.4-1.2.7-1.5-2.5-.3-5.2-1.3-5.2-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.2 1.2a11 11 0 0 1 5.8 0c2.2-1.5 3.2-1.2 3.2-1.2.6 1.6.2 2.8.1 3.1.8.8 1.2 1.8 1.2 3.1 0 4.4-2.7 5.4-5.2 5.7.4.4.8 1.1.8 2.2v3.2c0 .3.2.7.8.6 4.6-1.5 7.8-5.8 7.8-10.8C23.5 5.7 18.3.5 12 .5z"/></svg>
+              مشاهده سورس‌کد
+            </a>
+          </div>
+          <div data-aos="fade-up" data-aos-delay="320" class="mt-10 flex flex-wrap gap-x-8 gap-y-3 text-[11px] text-muted">
+            <span class="flex items-center gap-2"><span class="w-1 h-1 rounded-full bg-gold"></span> اندروید ۶ و بالاتر</span>
+            <span class="flex items-center gap-2"><span class="w-1 h-1 rounded-full bg-gold"></span> پلیر VLC با زیرنویس</span>
+            <span class="flex items-center gap-2"><span class="w-1 h-1 rounded-full bg-gold"></span> مجوز MIT</span>
+          </div>
+        </div>
+
+        <div data-aos="zoom-in" data-aos-delay="200" class="relative">
+          <div class="absolute -inset-10 rounded-[3rem] bg-gold/10 blur-3xl"></div>
+          <div class="relative float glass rounded-[2rem] border border-line p-5 glow max-w-sm mx-auto">
+            <div class="flex items-center justify-between text-[10px] text-muted">
+              <span>سالن اصلی · شب‌دیز</span>
+              <span class="inline-flex items-center gap-1.5 rounded-full bg-live/15 border border-live/40 px-2.5 py-1 text-live font-bold">
+                <span class="w-1.5 h-1.5 rounded-full bg-live animate-pulse"></span>
+                در حال پخش
+              </span>
+            </div>
+            <div class="mt-4 poster rounded-2xl aspect-[4/5] relative overflow-hidden border border-white/5">
+              <div class="absolute inset-0 poster opacity-60"></div>
+              <div class="absolute inset-x-0 bottom-0 p-5 bg-gradient-to-t from-night via-night/60 to-transparent">
+                <div class="text-[10px] text-gold font-bold">امشب · شنبه ۳۰ آبان · ۲۱:۰۰</div>
+                <div class="mt-1 text-2xl font-extrabold">اودیسه</div>
+                <div class="text-[10px] text-muted tracking-wide" dir="ltr">THE ODYSSEY</div>
+                <div class="mt-3 flex items-center gap-3 text-[10px] text-muted">
+                  <span class="text-gold font-bold">IMDb 8.4</span>
+                  <span>Rotten 93%</span>
+                  <span>۱۵۰ دقیقه</span>
+                </div>
+              </div>
+              <div class="absolute top-4 right-4 text-[9px] rounded-lg bg-black/50 border border-white/10 px-2 py-1">۲۱:۳۲ · دقیقه ۳۲</div>
+            </div>
+            <div class="mt-4 flex items-center justify-between rounded-xl border border-line bg-night/60 px-4 py-3">
+              <div class="text-[10px] text-muted">همگام با سالن</div>
+              <div class="flex items-center gap-1">
+                <span class="w-6 h-1 rounded-full bg-gold"></span>
+                <span class="w-6 h-1 rounded-full bg-gold"></span>
+                <span class="w-6 h-1 rounded-full bg-gold/30"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="max-w-6xl mx-auto px-5"><div class="hairline"></div></div>
+
+    <section id="features" class="py-24">
+      <div class="max-w-6xl mx-auto px-5">
+        <div data-aos="fade-up" class="max-w-2xl">
+          <span class="text-[11px] font-bold tracking-widest text-gold">SHABDIZ EXPERIENCE</span>
+          <h2 class="mt-3 text-3xl sm:text-4xl font-extrabold">هر چیزی که یک شب سینمایی لازم دارد</h2>
+          <p class="mt-4 text-sm leading-8 text-muted">از ورود بدون رمز تا پخش هم‌زمان با زیرنویس؛ زیرساخت طوری طراحی شده که تمرکز تو فقط روی فیلم باشد.</p>
+        </div>
+        <div class="mt-12 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div data-aos="fade-up" class="rounded-2xl border border-line bg-surface/60 p-6 hover:border-gold/40 transition">
+            <div class="w-11 h-11 rounded-xl bg-gold/10 border border-gold/25 grid place-items-center text-gold">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+            </div>
+            <h3 class="mt-5 font-bold">هم‌زمانی دقیق</h3>
+            <p class="mt-2 text-xs leading-7 text-muted">زمان پخش از سرور محاسبه می‌شود. با هر ورود، پلیر از همان ثانیه سالن جلو می‌رود و هر ۱۵ ثانیه دوباره همگام می‌شود.</p>
+          </div>
+          <div data-aos="fade-up" data-aos-delay="60" class="rounded-2xl border border-line bg-surface/60 p-6 hover:border-gold/40 transition">
+            <div class="w-11 h-11 rounded-xl bg-gold/10 border border-gold/25 grid place-items-center text-gold">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 4-4m4 4 4-4m4 4 4-4"/></svg>
+            </div>
+            <h3 class="mt-5 font-bold">ورود با ایمیل و کد یکبار مصرف</h3>
+            <p class="mt-2 text-xs leading-7 text-muted">بدون رمز عبور. کد شش‌رقمی موقت به ایمیل ارسال می‌شود و ورود در چند ثانیه انجام می‌گیرد.</p>
+          </div>
+          <div data-aos="fade-up" data-aos-delay="120" class="rounded-2xl border border-line bg-surface/60 p-6 hover:border-gold/40 transition">
+            <div class="w-11 h-11 rounded-xl bg-gold/10 border border-gold/25 grid place-items-center text-gold">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="M7 9h5m-5 3h10m-10 3h7"/></svg>
+            </div>
+            <h3 class="mt-5 font-bold">پلیر حرفه‌ای VLC</h3>
+            <p class="mt-2 text-xs leading-7 text-muted">پشتیبانی از MKV، MP4 و فرمت‌های رایج، همراه با بارگذاری زیرنویس و تنظیمات خوانایی.</p>
+          </div>
+          <div data-aos="fade-up" class="rounded-2xl border border-line bg-surface/60 p-6 hover:border-gold/40 transition">
+            <div class="w-11 h-11 rounded-xl bg-gold/10 border border-gold/25 grid place-items-center text-gold">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4m8-4v4M3 10h18M8 14h2m4 0h2m-8 3h2"/></svg>
+            </div>
+            <h3 class="mt-5 font-bold">تقویم شمسی و ساعت تهران</h3>
+            <p class="mt-2 text-xs leading-7 text-muted">تاریخ و ساعت سانس‌ها در پنل ادمین به شمسی ثبت می‌شود و در اپلیکیشن هم به همان شکل نمایش داده می‌شود.</p>
+          </div>
+          <div data-aos="fade-up" data-aos-delay="60" class="rounded-2xl border border-line bg-surface/60 p-6 hover:border-gold/40 transition">
+            <div class="w-11 h-11 rounded-xl bg-gold/10 border border-gold/25 grid place-items-center text-gold">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3 4 7v5c0 5 3.4 8.4 8 9 4.6-.6 8-4 8-9V7l-8-4Z"/><path d="m9 12 2 2 4-4"/></svg>
+            </div>
+            <h3 class="mt-5 font-bold">ورود فقط در زمان پخش</h3>
+            <p class="mt-2 text-xs leading-7 text-muted">لینک پخش تنها در بازه سانس و برای کاربران واردشده ارائه می‌شود؛ خارج از آن، سالن بسته است.</p>
+          </div>
+          <div data-aos="fade-up" data-aos-delay="120" class="rounded-2xl border border-line bg-surface/60 p-6 hover:border-gold/40 transition">
+            <div class="w-11 h-11 rounded-xl bg-gold/10 border border-gold/25 grid place-items-center text-gold">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m8 6-6 6 6 6m8-12 6 6-6 6"/></svg>
+            </div>
+            <h3 class="mt-5 font-bold">کاملاً اوپن‌سورس</h3>
+            <p class="mt-2 text-xs leading-7 text-muted">کد اپ، بک‌اند و همین سایت روی گیت‌هاب است. APK را مستقیم از GitHub Actions یا Releases بگیر.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="how" class="py-24 border-y border-line/60 bg-surface/25">
+      <div class="max-w-6xl mx-auto px-5">
+        <div data-aos="fade-up" class="text-center max-w-2xl mx-auto">
+          <span class="text-[11px] font-bold tracking-widest text-gold">HOW IT WORKS</span>
+          <h2 class="mt-3 text-3xl sm:text-4xl font-extrabold">سه قدم تا سالن پخش</h2>
+        </div>
+        <div class="mt-14 relative grid md:grid-cols-3 gap-10">
+          <div class="hidden md:block absolute top-7 right-[16%] left-[16%] h-px bg-gradient-to-l from-transparent via-gold/40 to-transparent"></div>
+          <div data-aos="fade-up" class="relative text-center">
+            <div class="mx-auto w-14 h-14 rounded-2xl glass border border-gold/30 grid place-items-center text-gold font-extrabold relative z-10">۰۱</div>
+            <h3 class="mt-6 font-bold">با ایمیل وارد شو</h3>
+            <p class="mt-2 text-xs leading-7 text-muted">کد یکبار مصرف را دریافت کن و وارد شو. حساب کاربری‌ات خودکار ساخته می‌شود.</p>
+          </div>
+          <div data-aos="fade-up" data-aos-delay="100" class="relative text-center">
+            <div class="mx-auto w-14 h-14 rounded-2xl glass border border-gold/30 grid place-items-center text-gold font-extrabold relative z-10">۰۲</div>
+            <h3 class="mt-6 font-bold">فیلم و ساعت را ببین</h3>
+            <p class="mt-2 text-xs leading-7 text-muted">تایم‌لاین فیلم‌ها با تاریخ شمسی و ساعت تهران؛ جزئیات، امتیازها و سانس‌ها.</p>
+          </div>
+          <div data-aos="fade-up" data-aos-delay="200" class="relative text-center">
+            <div class="mx-auto w-14 h-14 rounded-2xl glass border border-gold/30 grid place-items-center text-gold font-extrabold relative z-10">۰۳</div>
+            <h3 class="mt-6 font-bold">هم‌زمان تماشا کن</h3>
+            <p class="mt-2 text-xs leading-7 text-muted">سر ساعت سانس، وارد سالن شو؛ پلیر از دقیقه جاری شروع می‌کند و زیرنویس هم داری.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="timeline" class="py-24">
+      <div class="max-w-6xl mx-auto px-5 grid lg:grid-cols-[.85fr_1.15fr] gap-14 items-center">
+        <div data-aos="fade-up">
+          <span class="text-[11px] font-bold tracking-widest text-gold">NIGHT TIMELINE</span>
+          <h2 class="mt-3 text-3xl sm:text-4xl font-extrabold leading-tight">برنامه پخش، یک تایم‌لاین زنده</h2>
+          <p class="mt-5 text-sm leading-8 text-muted">
+            جدیدترین سانس‌ها اول نمایش داده می‌شوند. هر کارت زمان شمسی، ساعت، وضعیت پخش و امتیازها را نشان می‌دهد.
+            اگر فیلم در حال پخش باشد، دکمه ورود به سالن فعال می‌شود.
+          </p>
+          <a href="https://github.com/pedramgholizadeh/shabdiz-app" class="mt-7 inline-flex items-center gap-2 text-xs font-bold text-gold hover:gap-3 transition-all">
+            ساختار تایم‌لاین را در سورس ببین
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5m6-6-6 6 6 6"/></svg>
+          </a>
+        </div>
+        <div data-aos="fade-up" data-aos-delay="120" class="relative">
+          <div class="absolute right-5 top-4 bottom-4 w-px bg-line"></div>
+          <div class="space-y-4">
+            <div class="relative pr-10">
+              <span class="absolute right-[16px] top-8 w-2.5 h-2.5 rounded-full bg-gold ring-4 ring-gold/15"></span>
+              <div class="rounded-2xl border border-gold/30 bg-surface/80 p-4 flex gap-4">
+                <div class="poster w-16 h-24 rounded-xl shrink-0 border border-white/5"></div>
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="text-[9px] font-bold rounded-full bg-live/15 text-live border border-live/30 px-2 py-1">در حال پخش</span>
+                    <span class="text-[10px] text-muted">۱۴۰۵/۰۸/۳۰</span>
+                  </div>
+                  <div class="mt-2 font-bold truncate">اودیسه</div>
+                  <div class="text-[9px] text-muted" dir="ltr">THE ODYSSEY</div>
+                  <div class="mt-2 flex items-center gap-3 text-[10px] text-gold">
+                    <span>شنبه ۳۰ آبان · ۲۱:۰۰</span><span class="text-muted">IMDb 8.4</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="relative pr-10">
+              <span class="absolute right-[16px] top-8 w-2.5 h-2.5 rounded-full bg-gold/60 ring-4 ring-gold/10"></span>
+              <div class="rounded-2xl border border-line bg-surface/60 p-4 flex gap-4">
+                <div class="poster-2 w-16 h-24 rounded-xl shrink-0 border border-white/5"></div>
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="text-[9px] font-bold rounded-full bg-gold/10 text-gold border border-gold/30 px-2 py-1">به‌زودی</span>
+                    <span class="text-[10px] text-muted">۱۴۰۵/۰۹/۰۶</span>
+                  </div>
+                  <div class="mt-2 font-bold truncate">فیلم بعدی شب‌دیز</div>
+                  <div class="text-[9px] text-muted" dir="ltr">NEXT SCREENING</div>
+                  <div class="mt-2 flex items-center gap-3 text-[10px] text-gold">
+                    <span>شنبه ۶ آذر · ۲۱:۰۰</span><span class="text-muted">در سالن اصلی</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="relative pr-10">
+              <span class="absolute right-[16px] top-8 w-2.5 h-2.5 rounded-full bg-muted/50 ring-4 ring-white/5"></span>
+              <div class="rounded-2xl border border-line bg-surface/40 p-4 flex gap-4 opacity-70">
+                <div class="poster-3 w-16 h-24 rounded-xl shrink-0 border border-white/5"></div>
+                <div class="min-w-0 flex-1">
+                  <div class="text-[9px] text-muted">هفته آینده</div>
+                  <div class="mt-2 font-bold truncate">یک شب دیگر، یک فیلم دیگر</div>
+                  <div class="text-[9px] text-muted">سانس‌ها از پنل ادمین ثبت می‌شوند</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="opensource" class="py-24 border-y border-line/60 bg-surface/25">
+      <div class="max-w-6xl mx-auto px-5 grid lg:grid-cols-2 gap-12 items-center">
+        <div data-aos="fade-up">
+          <span class="text-[11px] font-bold tracking-widest text-gold">OPEN SOURCE, BY DESIGN</span>
+          <h2 class="mt-3 text-3xl sm:text-4xl font-extrabold leading-tight">کدها باز است؛ APK هم مستقیم از گیت‌هاب</h2>
+          <p class="mt-5 text-sm leading-8 text-muted">
+            هر push روی شاخه master، بیلد اندروید را با GitHub Actions انجام می‌دهد. خروجی APK را می‌توانی از Releases یا Artifacts همان اجرا دانلود کنی.
+            بک‌اند PHP/MySQL، اپ Flutter و این صفحه، همه در یک ریپازیتوری نگهداری می‌شوند.
+          </p>
+          <div class="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+            <div class="rounded-xl border border-line bg-night/50 p-3"><div class="text-sm font-bold">Flutter</div><div class="text-[9px] text-muted mt-1">Android 6+</div></div>
+            <div class="rounded-xl border border-line bg-night/50 p-3"><div class="text-sm font-bold">PHP 8</div><div class="text-[9px] text-muted mt-1">Admin + API</div></div>
+            <div class="rounded-xl border border-line bg-night/50 p-3"><div class="text-sm font-bold">MySQL</div><div class="text-[9px] text-muted mt-1">Data layer</div></div>
+            <div class="rounded-xl border border-line bg-night/50 p-3"><div class="text-sm font-bold">MIT</div><div class="text-[9px] text-muted mt-1">License</div></div>
+          </div>
+        </div>
+        <div data-aos="fade-up" data-aos-delay="120" class="rounded-2xl border border-line bg-[#0b0b10] overflow-hidden glow">
+          <div class="flex items-center justify-between px-4 py-3 border-b border-line text-[10px] text-muted">
+            <div class="flex gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-[#e05b5b]/70"></span><span class="w-2.5 h-2.5 rounded-full bg-gold/70"></span><span class="w-2.5 h-2.5 rounded-full bg-[#50c878]/70"></span></div>
+            <span dir="ltr">build-apk.yml · release</span>
+          </div>
+          <pre class="p-5 text-[10px] leading-6 text-muted overflow-x-auto" dir="ltr"><code><span class="text-gold">name:</span> Build Android APK
+<span class="text-gold">on:</span>
+  push:
+    branches: [master]
+  workflow_dispatch:
+<span class="text-gold">jobs:</span>
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: { flutter-version: '3.47.7' }
+      - run: flutter pub get
+        working-directory: app
+      - run: flutter build apk --release
+        working-directory: app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shabdiz-apk
+          path: app/build/app/outputs/flutter-apk/*.apk</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <section class="py-24">
+      <div class="max-w-6xl mx-auto px-5">
+        <div data-aos="zoom-in" class="relative overflow-hidden rounded-[2rem] border border-gold/25 bg-gradient-to-br from-[#1b150c] via-surface to-night p-8 sm:p-14 text-center glow">
+          <div class="absolute -top-24 right-1/2 translate-x-1/2 w-[36rem] h-[36rem] rounded-full bg-gold/10 blur-3xl pointer-events-none"></div>
+          <div class="relative">
+            <h2 class="text-3xl sm:text-4xl font-extrabold">امشب، صندلی‌ات را رزرو کن</h2>
+            <p class="mt-4 text-sm leading-8 text-muted max-w-xl mx-auto">نسخه اندروید را دانلود کن؛ با ایمیل وارد شو و تایم‌لاین فیلم‌ها را ببین. نصب روی اندروید ۶ و بالاتر انجام می‌شود.</p>
+            <div class="mt-8 flex flex-wrap justify-center gap-3">
+              <a href="https://github.com/pedramgholizadeh/shabdiz-app/releases/latest" class="rounded-xl bg-gold text-night px-7 py-3.5 text-sm font-extrabold hover:bg-[#f0c886] transition">دریافت آخرین APK</a>
+              <a href="https://github.com/pedramgholizadeh/shabdiz-app/actions/workflows/build-apk.yml" class="rounded-xl border border-line bg-night/50 px-6 py-3.5 text-sm font-bold hover:border-gold/50 transition">مشاهده بیلدهای گیت‌هاب</a>
+            </div>
+            <p class="mt-5 text-[10px] text-muted">نصب از منابع خارج از فروشگاه ممکن است نیاز به اجازه «نصب برنامه‌های ناشناس» داشته باشد.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="pb-24">
+      <div class="max-w-4xl mx-auto px-5">
+        <div data-aos="fade-up" class="text-center mb-10">
+          <span class="text-[11px] font-bold tracking-widest text-gold">FAQ</span>
+          <h2 class="mt-3 text-3xl font-extrabold">پرسش‌های پرتکرار</h2>
+        </div>
+        <div class="space-y-3">
+          <details data-aos="fade-up" class="group rounded-2xl border border-line bg-surface/55 p-5">
+            <summary class="flex items-center justify-between cursor-pointer list-none font-bold text-sm">
+              شب‌دیز روی چه نسخه‌ای از اندروید نصب می‌شود؟
+              <svg class="chev text-gold" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+            </summary>
+            <p class="mt-3 text-xs leading-7 text-muted">حداقل اندروید ۶ (API 23). APK به‌صورت مستقیم از GitHub Actions ساخته می‌شود و نیازی به فروشگاه اپلیکیشن ندارد.</p>
+          </details>
+          <details data-aos="fade-up" data-aos-delay="50" class="group rounded-2xl border border-line bg-surface/55 p-5">
+            <summary class="flex items-center justify-between cursor-pointer list-none font-bold text-sm">
+              پخش چطور با بقیه هم‌زمان می‌شود؟
+              <svg class="chev text-gold" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+            </summary>
+            <p class="mt-3 text-xs leading-7 text-muted">سرور بر اساس ساعت شروع سانس، ثانیه جاری پخش را محاسبه می‌کند. اپلیکیشن همان نقطه را در VLC جلو می‌برد و هر ۱۵ ثانیه با API دوباره همگام می‌شود.</p>
+          </details>
+          <details data-aos="fade-up" data-aos-delay="100" class="group rounded-2xl border border-line bg-surface/55 p-5">
+            <summary class="flex items-center justify-between cursor-pointer list-none font-bold text-sm">
+              زیرنویس فارسی پشتیبانی می‌شود؟
+              <svg class="chev text-gold" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+            </summary>
+            <p class="mt-3 text-xs leading-7 text-muted">بله. برای هر سانس می‌توان لینک زیرنویس ثبت کرد؛ پلیر VLC آن را بارگذاری می‌کند و دکمه روشن/خاموش زیرنویس در صفحه پخش وجود دارد.</p>
+          </details>
+          <details data-aos="fade-up" data-aos-delay="150" class="group rounded-2xl border border-line bg-surface/55 p-5">
+            <summary class="flex items-center justify-between cursor-pointer list-none font-bold text-sm">
+              می‌توانم در توسعه مشارکت کنم؟
+              <svg class="chev text-gold" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+            </summary>
+            <p class="mt-3 text-xs leading-7 text-muted">بله، پروژه با مجوز MIT منتشر شده است. Issue و Pull Request روی مخزن GitHub پذیرفته می‌شود. راهنمای توسعه در AGENTS.md و README قرار دارد.</p>
+          </details>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="border-t border-line/70 bg-night/80">
+    <div class="max-w-6xl mx-auto px-5 py-10 flex flex-col sm:flex-row items-center justify-between gap-5 text-[11px] text-muted">
+      <div class="flex items-center gap-3">
+        <span class="w-7 h-7 rounded-lg bg-gradient-to-br from-gold to-golddeep grid place-items-center">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="#08080c"><path d="M8 5v14l11-7z"/></svg>
+        </span>
+        <span>شب‌دیز · سینمای هم‌زمان، هر شب</span>
+      </div>
+      <div class="flex items-center gap-5">
+        <a class="hover:text-gold transition" href="https://github.com/pedramgholizadeh/shabdiz-app">GitHub</a>
+        <a class="hover:text-gold transition" href="https://github.com/pedramgholizadeh/shabdiz-app/releases/latest">Releases</a>
+        <a class="hover:text-gold transition" href="https://github.com/pedramgholizadeh/shabdiz-app/blob/master/LICENSE">MIT License</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
+  <script>
+    AOS.init({ once: true, duration: 700, easing: 'ease-out-cubic', offset: 60 });
+    if (window.anime) {
+      anime({
+        targets: 'header .font-extrabold',
+        translateY: [10, 0],
+        opacity: [0, 1],
+        duration: 900,
+        easing: 'easeOutCubic'
+      });
+    }
+  </script>
+  <script type="importmap">
+    { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+
+    const canvas = document.getElementById('webgl');
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!reduceMotion && window.WebGLRenderingContext) {
+      const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+      camera.position.z = 14;
+
+      const count = window.innerWidth < 640 ? 500 : 1100;
+      const positions = new Float32Array(count * 3);
+      const colors = new Float32Array(count * 3);
+      const gold = new THREE.Color('#e8b86d');
+      const cool = new THREE.Color('#8ea2ff');
+
+      for (let i = 0; i < count; i++) {
+        positions[i * 3] = (Math.random() - 0.5) * 34;
+        positions[i * 3 + 1] = (Math.random() - 0.5) * 24;
+        positions[i * 3 + 2] = (Math.random() - 0.5) * 20;
+        const c = Math.random() > 0.72 ? gold : cool;
+        colors[i * 3] = c.r;
+        colors[i * 3 + 1] = c.g;
+        colors[i * 3 + 2] = c.b;
+      }
+
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+      const material = new THREE.PointsMaterial({
+        size: 0.055,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.75,
+        sizeAttenuation: true,
+        depthWrite: false
+      });
+      const stars = new THREE.Points(geometry, material);
+      scene.add(stars);
+
+      let pointerX = 0;
+      let pointerY = 0;
+      window.addEventListener('pointermove', (event) => {
+        pointerX = (event.clientX / window.innerWidth - 0.5) * 0.6;
+        pointerY = (event.clientY / window.innerHeight - 0.5) * 0.4;
+      }, { passive: true });
+
+      const clock = new THREE.Clock();
+      const animate = () => {
+        const elapsed = clock.getElapsedTime();
+        stars.rotation.y = elapsed * 0.018 + pointerX;
+        stars.rotation.x = Math.sin(elapsed * 0.08) * 0.04 + pointerY;
+        camera.position.x += (pointerX * 2.4 - camera.position.x) * 0.02;
+        camera.position.y += (-pointerY * 1.8 - camera.position.y) * 0.02;
+        renderer.render(scene, camera);
+        requestAnimationFrame(animate);
+      };
+      animate();
+
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+    }
+  </script>
+</body>
+</html>
