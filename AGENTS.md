@@ -213,7 +213,8 @@ If a change requires a new secret, add it to `config.env.example` as an empty pl
 
 `build-apk.yml`:
 
-- Triggers: pushes to `master`, tags `v*`, pull requests, manual dispatch.
+- Triggers: pushes to `master` that touch `app/**` or the workflow, tags `v*`, pull requests, manual
+  dispatch. Docs-only and site-only pushes do not rebuild the APK.
 - Java 17, Flutter `3.47.7`, `flutter pub get`, analyze, test.
 - Optional keystore from `ANDROID_KEYSTORE_*` secrets; otherwise debug signing.
 - Artifacts: universal APK and per-ABI APKs.

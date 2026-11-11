@@ -187,7 +187,9 @@ Optional repository secrets for signed release builds:
 
 Without them, CI produces a debug-signed APK — installable, but not suitable for store distribution.
 
-Enable Pages under **Settings → Pages → Source: GitHub Actions**.
+Enable Pages under **Settings → Pages → Source: GitHub Actions**. The workflow also requests
+automatic enablement, but if the first run fails at *Configure Pages*, enable it once in the
+repository settings and re-run the workflow.
 
 ## Security model
 
