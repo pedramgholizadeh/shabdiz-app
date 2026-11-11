@@ -5,8 +5,14 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../data/models/user.dart';
 
 class TokenStore {
+  // The darwin plugin defaults to the data-protection keychain, which needs a
+  // keychain-access-groups entitlement and fails with errSec -34018 on
+  // ad-hoc signed builds; the file-based keychain works without signing.
   TokenStore([FlutterSecureStorage? storage])
-      : _storage = storage ?? const FlutterSecureStorage();
+      : _storage = storage ??
+            const FlutterSecureStorage(
+              mOptions: MacOsOptions(usesDataProtectionKeychain: false),
+            );
 
   static const _tokenKey = 'shabdiz.auth_token';
   static const _userKey = 'shabdiz.user';
