@@ -9,6 +9,7 @@ use DateTimeZone;
 use Shabdiz\Core\Auth;
 use Shabdiz\Core\View;
 use Shabdiz\Repositories\MovieRepository;
+use Shabdiz\Repositories\PlaybackRepository;
 use Shabdiz\Repositories\ScreeningRepository;
 use Shabdiz\Repositories\UserRepository;
 use Shabdiz\Support\Jalali;
@@ -31,6 +32,7 @@ final class DashboardController
                 'movies' => MovieRepository::count(),
                 'screenings' => ScreeningRepository::count(),
                 'users' => UserRepository::count(),
+                'watching' => PlaybackRepository::liveViewers(),
             ],
             'nextScreening' => $next,
             'nextLabel' => $nextLabel,
