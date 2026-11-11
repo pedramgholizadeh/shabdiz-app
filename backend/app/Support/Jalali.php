@@ -108,8 +108,9 @@ final class Jalali
 
     public static function toUtc(string $jalaliDate, string $time): ?DateTimeImmutable
     {
-        $date = self::parseDate($jalaliDate);
-        if ($date === null || preg_match('#^([01]?\d|2[0-3]):([0-5]\d)$#', trim($time), $m) !== 1) {
+        // The admin form displays Persian digits; accept Persian, Arabic and Latin ones.
+        $date = self::parseDate(self::latinize($jalaliDate));
+        if ($date === null || preg_match('#^([01]?\d|2[0-3]):([0-5]\d)$#', self::latinize(trim($time)), $m) !== 1) {
             return null;
         }
         [$gy, $gm, $gd] = self::toGregorian(...$date);
@@ -123,6 +124,17 @@ final class Jalali
             return null;
         }
         return $moment->setTimezone(new DateTimeZone('UTC'));
+    }
+
+    /** Persian/Arabic digits → Latin. */
+    private static function latinize(string $value): string
+    {
+        return strtr($value, [
+            '۰' => '0', '۱' => '1', '۲' => '2', '۳' => '3', '۴' => '4',
+            '۵' => '5', '۶' => '6', '۷' => '7', '۸' => '8', '۹' => '9',
+            '٠' => '0', '١' => '1', '٢' => '2', '٣' => '3', '٤' => '4',
+            '٥' => '5', '٦' => '6', '٧' => '7', '٨' => '8', '٩' => '9',
+        ]);
     }
 
     public static function format(DateTimeImmutable $utc, string $format = 'full'): string
