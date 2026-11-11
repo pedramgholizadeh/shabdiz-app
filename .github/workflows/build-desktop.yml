@@ -69,21 +69,33 @@ jobs:
         run: |
           export DEBIAN_FRONTEND=noninteractive
           APT_OPTS=(-o Acquire::ForceIPv4=true -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 -o Acquire::Retries=2 -o DPkg::Lock::Timeout=120)
-          echo "--- apt/dpkg holders before cleanup"
-          ps -eo pid,etime,cmd | grep -E "apt|dpkg|unattended" | grep -v grep || true
           sudo systemctl stop unattended-upgrades.service apt-daily.service apt-daily-upgrade.service 2>/dev/null || true
           sudo pkill -9 -f unattended-upgrade 2>/dev/null || true
-          sudo pkill -9 -f "apt-get" 2>/dev/null || true
-          sudo dpkg --configure -a || true
           sudo rm -f /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock /var/lib/apt/lists/lock /var/cache/apt/archives/lock
-          if [ -n "${http_proxy:-}" ]; then
-            echo "Acquire::http::Proxy \"$http_proxy\";" | sudo tee /etc/apt/apt.conf.d/99proxy >/dev/null
+          sudo dpkg --configure -a || true
+
+          MIRROR=""
+          if [ "$ARCH" = "arm64" ]; then
+            CANDIDATES=(https://ports.ubuntu.com/ubuntu-ports https://mirrors.edge.kernel.org/ubuntu-ports https://mirrors.aliyun.com/ubuntu-ports https://mirrors.tuna.tsinghua.edu.cn/ubuntu-ports)
+          else
+            CANDIDATES=(https://archive.ubuntu.com/ubuntu https://mirrors.edge.kernel.org/ubuntu https://mirrors.aliyun.com/ubuntu https://mirror.arvancloud.ir/ubuntu https://mirrors.tuna.tsinghua.edu.cn/ubuntu)
           fi
-          sudo sed -i -E 's|URIs: http://|URIs: https://|g' /etc/apt/sources.list.d/*.sources 2>/dev/null || true
-          sudo sed -i -E 's|http://|https://|g' /etc/apt/sources.list 2>/dev/null || true
-          grep -rhE '^(URIs|deb) ' /etc/apt/sources.list /etc/apt/sources.list.d/*.sources 2>/dev/null | head -5 || true
-          echo "--- archive reachability"
-          curl -sS -o /dev/null -w "https archive -> %{http_code} in %{time_total}s\n" --max-time 30 https://azure.archive.ubuntu.com/ubuntu/ || true
+          for M in "${CANDIDATES[@]}"; do
+            H="${M#https://}"; H="${H%%/*}"
+            if getent hosts "$H" >/dev/null 2>&1; then
+              if curl -sSfI --max-time 20 "$M/dists/noble/InRelease" >/dev/null 2>&1; then
+                echo "using mirror: $M"; MIRROR="$M"; break
+              fi
+              echo "resolvable but unreachable: $M"
+            else
+              echo "dns failure: $H"
+            fi
+          done
+          if [ -z "$MIRROR" ]; then echo "no reachable Ubuntu mirror"; exit 1; fi
+          echo "$MIRROR" | sudo tee /etc/apt/apt-mirrors.txt >/dev/null 2>&1 || true
+          sudo sed -i -E "s|^URIs:.*|URIs: $MIRROR|" /etc/apt/sources.list.d/*.sources 2>/dev/null || true
+          sudo sed -i -E "s|https?://[^ ]+|$MIRROR|" /etc/apt/sources.list 2>/dev/null || true
+
           timeout 240 sudo -E apt-get "${APT_OPTS[@]}" update || echo "apt update failed; falling back to cached lists"
           timeout 600 sudo -E apt-get "${APT_OPTS[@]}" install -y --no-install-recommends \
             clang cmake ninja-build pkg-config \
