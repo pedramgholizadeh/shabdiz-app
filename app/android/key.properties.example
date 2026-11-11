@@ -1,5 +1,10 @@
-// Copy to android/key.properties for local release builds.
-// Never commit the real file or the keystore.
+# Copy to android/key.properties for local release builds.
+# Never commit the real file or the keystore.
+#
+# Generate the keystore with the project identity:
+#   keytool -genkeypair -v -keystore shabdiz-release.jks -keyalg RSA -keysize 4096 \
+#     -validity 10000 -alias shabdiz \
+#     -dname "CN=Pedram Gholizadeh, O=WEBIRO, L=Tehran, ST=Tehran, C=IR"
 storePassword=changeme
 keyPassword=changeme
 keyAlias=shabdiz

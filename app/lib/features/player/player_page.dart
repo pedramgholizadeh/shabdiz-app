@@ -1,10 +1,12 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_vlc_player/flutter_vlc_player.dart';
 import 'package:go_router/go_router.dart';
+import 'package:media_kit/media_kit.dart';
+import 'package:media_kit_video/media_kit_video.dart';
 
 import '../../core/config/app_config.dart';
 import '../../core/network/api_client.dart';
@@ -23,10 +25,13 @@ class PlayerPage extends ConsumerStatefulWidget {
 }
 
 class _PlayerPageState extends ConsumerState<PlayerPage> {
-  VlcPlayerController? _controller;
-  PlaybackTicket? _ticket;
+  Player? _player;
+  VideoController? _videoController;
+  SubtitleTrack? _subtitleTrack;
+  StreamSubscription<String>? _errorSubscription;
   Timer? _syncTimer;
   Timer? _heartbeatTimer;
+  PlaybackTicket? _ticket;
   String? _error;
   bool _loading = true;
   bool _synced = true;
@@ -34,14 +39,20 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   bool _subtitleEnabled = false;
   bool _controlsVisible = true;
 
+  bool get _isMobile =>
+      defaultTargetPlatform == TargetPlatform.android ||
+      defaultTargetPlatform == TargetPlatform.iOS;
+
   @override
   void initState() {
     super.initState();
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
-    ]);
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    if (_isMobile) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    }
     _load();
   }
 
@@ -49,9 +60,12 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   void dispose() {
     _syncTimer?.cancel();
     _heartbeatTimer?.cancel();
-    _controller?.dispose();
-    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    _errorSubscription?.cancel();
+    _player?.dispose();
+    if (_isMobile) {
+      SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    }
     super.dispose();
   }
 
@@ -61,49 +75,55 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
       _error = null;
       _ended = false;
     });
+    await _errorSubscription?.cancel();
+    await _player?.dispose();
+    _player = null;
+    _videoController = null;
+    _subtitleTrack = null;
+
     try {
       final repository = ref.read(playbackRepositoryProvider);
       final ticket = await repository.join(widget.screeningId);
       if (!mounted) return;
 
-      final controller = VlcPlayerController.network(
-        ticket.sourceUrl,
-        hwAcc: HwAcc.auto,
-        autoPlay: false,
-        options: VlcPlayerOptions(
-          advanced: VlcAdvancedOptions([
-            VlcAdvancedOptions.networkCaching(2000),
-          ]),
-          http: VlcHttpOptions([
-            VlcHttpOptions.httpReconnect(true),
-          ]),
-          subtitle: VlcSubtitleOptions([
-            VlcSubtitleOptions.fontSize(22),
-            VlcSubtitleOptions.boldStyle(true),
-            VlcSubtitleOptions.outlineThickness(VlcSubtitleThickness.normal),
-          ]),
-        ),
+      final player = Player(
+        configuration: const PlayerConfiguration(title: 'ShabDiz'),
       );
+      final controller = VideoController(player);
+      _player = player;
+      _videoController = controller;
+      _ticket = ticket;
 
-      controller.addOnInitListener(() async {
-        await controller.setTime(ticket.positionSeconds * 1000);
-        if (ticket.subtitleUrl.isNotEmpty) {
-          try {
-            await controller.addSubtitleFromNetwork(
-              ticket.subtitleUrl,
-              isSelected: true,
-            );
-            _subtitleEnabled = true;
-          } catch (_) {
-            _subtitleEnabled = false;
-          }
-        }
-        await controller.play();
+      _errorSubscription = player.stream.error.listen((message) {
+        if (!mounted) return;
+        setState(() {
+          _error = message.isEmpty
+              ? 'پخش فیلم آغاز نشد. لینک پخش یا اتصال شبکه را بررسی کنید.'
+              : 'خطای پخش: $message';
+        });
       });
 
-      _controller = controller;
-      _ticket = ticket;
-      if (mounted) setState(() => _loading = false);
+      await player.open(Media(ticket.sourceUrl), play: false);
+      await player.seek(Duration(seconds: ticket.positionSeconds));
+
+      if (ticket.subtitleUrl.isNotEmpty) {
+        try {
+          _subtitleTrack = SubtitleTrack.uri(
+            ticket.subtitleUrl,
+            title: ticket.subtitleLabel,
+            language: 'fa',
+          );
+          await player.setSubtitleTrack(_subtitleTrack!);
+          _subtitleEnabled = true;
+        } catch (_) {
+          _subtitleTrack = null;
+          _subtitleEnabled = false;
+        }
+      }
+
+      await player.play();
+      if (!mounted) return;
+      setState(() => _loading = false);
 
       _syncTimer?.cancel();
       _heartbeatTimer?.cancel();
@@ -122,21 +142,21 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   }
 
   Future<void> _resync() async {
-    final controller = _controller;
-    if (controller == null) return;
+    final player = _player;
+    if (player == null) return;
     try {
       final sync =
           await ref.read(playbackRepositoryProvider).sync(widget.screeningId);
       if (!mounted) return;
       if (!sync.isLive) {
-        await controller.pause();
+        await player.pause();
         setState(() => _ended = true);
         return;
       }
-      final currentMs = await controller.getTime();
-      final targetMs = sync.positionSeconds * 1000;
-      if ((currentMs - targetMs).abs() > 2500) {
-        await controller.setTime(targetMs);
+      final target = Duration(seconds: sync.positionSeconds);
+      final drift = player.state.position - target;
+      if (drift.inMilliseconds.abs() > 2500) {
+        await player.seek(target);
       }
       if (mounted) setState(() => _synced = true);
     } catch (_) {
@@ -155,14 +175,14 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   }
 
   Future<void> _toggleSubtitle() async {
-    final controller = _controller;
-    if (controller == null || _ticket?.subtitleUrl.isEmpty != false) return;
+    final player = _player;
+    final track = _subtitleTrack;
+    if (player == null || track == null) return;
     try {
-      final tracks = await controller.getSpuTracks();
-      final ids = tracks.keys.where((id) => id >= 0).toList();
-      if (ids.isEmpty) return;
       final enable = !_subtitleEnabled;
-      await controller.setSpuTrack(enable ? ids.first : -1);
+      await player.setSubtitleTrack(
+        enable ? track : SubtitleTrack.no(),
+      );
       if (mounted) setState(() => _subtitleEnabled = enable);
     } catch (_) {
       if (mounted) {
@@ -171,6 +191,23 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
         );
       }
     }
+  }
+
+  void _togglePlay() {
+    _player?.playOrPause();
+  }
+
+  KeyEventResult _handleKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    if (event.logicalKey == LogicalKeyboardKey.escape) {
+      context.pop();
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.space) {
+      _togglePlay();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
   }
 
   @override
@@ -183,71 +220,88 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
             )
           : _error != null
               ? _PlayerError(message: _error!, onRetry: _load)
-              : _buildPlayer(),
+              : Focus(
+                  autofocus: true,
+                  onKeyEvent: _handleKey,
+                  child: _buildPlayer(),
+                ),
     );
   }
 
   Widget _buildPlayer() {
-    final controller = _controller;
-    if (controller == null) {
+    final player = _player;
+    final controller = _videoController;
+    if (player == null || controller == null) {
       return const SizedBox.shrink();
     }
 
-    return ValueListenableBuilder<VlcPlayerValue>(
-      valueListenable: controller,
-      builder: (context, value, _) {
-        if (value.hasError) {
-          return _PlayerError(
-            message: 'پخش فیلم آغاز نشد. لینک پخش یا اتصال شبکه را بررسی کنید.',
-            onRetry: _load,
-          );
-        }
-
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            Center(
-              child: VlcPlayer(
-                controller: controller,
-                aspectRatio:
-                    value.aspectRatio > 0 ? value.aspectRatio : 16 / 9,
-                placeholder: const Center(
-                  child: CircularProgressIndicator(color: AppColors.gold),
-                ),
-              ),
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Video(
+          controller: controller,
+          controls: NoVideoControls,
+          fit: BoxFit.contain,
+          pauseUponEnteringBackgroundMode: true,
+          subtitleViewConfiguration: const SubtitleViewConfiguration(
+            style: TextStyle(
+              fontFamily: 'Vazirmatn',
+              fontSize: 26,
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+              shadows: [
+                Shadow(blurRadius: 6, color: Colors.black87, offset: Offset(0, 2)),
+              ],
             ),
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () =>
-                  setState(() => _controlsVisible = !_controlsVisible),
-            ),
-            AnimatedOpacity(
-              opacity: _controlsVisible ? 1 : 0,
-              duration: const Duration(milliseconds: 220),
-              child: IgnorePointer(
-                ignoring: !_controlsVisible,
-                child: _PlayerChrome(
-                  title: _ticket?.title ?? '',
-                  value: value,
-                  synced: _synced,
-                  ended: _ended,
-                  subtitleEnabled: _subtitleEnabled,
-                  hasSubtitle: _ticket?.subtitleUrl.isNotEmpty ?? false,
-                  onClose: () => context.pop(),
-                  onTogglePlay: () async {
-                    if (value.isPlaying) {
-                      await controller.pause();
-                    } else {
-                      await controller.play();
-                    }
+            textAlign: TextAlign.center,
+            padding: EdgeInsets.fromLTRB(24, 24, 24, 64),
+          ),
+        ),
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => setState(() => _controlsVisible = !_controlsVisible),
+        ),
+        StreamBuilder<Duration>(
+          stream: player.stream.position,
+          initialData: player.state.position,
+          builder: (context, positionSnapshot) {
+            return StreamBuilder<bool>(
+              stream: player.stream.playing,
+              initialData: player.state.playing,
+              builder: (context, playingSnapshot) {
+                return StreamBuilder<Duration>(
+                  stream: player.stream.duration,
+                  initialData: player.state.duration,
+                  builder: (context, durationSnapshot) {
+                    return AnimatedOpacity(
+                      opacity: _controlsVisible ? 1 : 0,
+                      duration: const Duration(milliseconds: 220),
+                      child: IgnorePointer(
+                        ignoring: !_controlsVisible,
+                        child: _PlayerChrome(
+                          title: _ticket?.title ?? '',
+                          position: positionSnapshot.data ?? Duration.zero,
+                          duration: durationSnapshot.data ?? Duration.zero,
+                          isPlaying: playingSnapshot.data ?? false,
+                          synced: _synced,
+                          ended: _ended,
+                          subtitleEnabled: _subtitleEnabled,
+                          hasSubtitle:
+                              (_ticket?.subtitleUrl.isNotEmpty ?? false) &&
+                                  _subtitleTrack != null,
+                          onClose: () => context.pop(),
+                          onTogglePlay: _togglePlay,
+                          onToggleSubtitle: _toggleSubtitle,
+                        ),
+                      ),
+                    );
                   },
-                  onToggleSubtitle: _toggleSubtitle,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
+                );
+              },
+            );
+          },
+        ),
+      ],
     );
   }
 }
@@ -255,7 +309,9 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
 class _PlayerChrome extends StatelessWidget {
   const _PlayerChrome({
     required this.title,
-    required this.value,
+    required this.position,
+    required this.duration,
+    required this.isPlaying,
     required this.synced,
     required this.ended,
     required this.subtitleEnabled,
@@ -266,19 +322,19 @@ class _PlayerChrome extends StatelessWidget {
   });
 
   final String title;
-  final VlcPlayerValue value;
+  final Duration position;
+  final Duration duration;
+  final bool isPlaying;
   final bool synced;
   final bool ended;
   final bool subtitleEnabled;
   final bool hasSubtitle;
   final VoidCallback onClose;
-  final Future<void> Function() onTogglePlay;
+  final VoidCallback onTogglePlay;
   final Future<void> Function() onToggleSubtitle;
 
   @override
   Widget build(BuildContext context) {
-    final duration = value.duration;
-    final position = value.position;
     final progress = duration.inMilliseconds <= 0
         ? 0.0
         : (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0);
@@ -338,9 +394,9 @@ class _PlayerChrome extends StatelessWidget {
                 Row(
                   children: [
                     IconButton(
-                      onPressed: () => onTogglePlay(),
+                      onPressed: onTogglePlay,
                       icon: Icon(
-                        value.isPlaying
+                        isPlaying
                             ? Icons.pause_rounded
                             : Icons.play_arrow_rounded,
                         color: Colors.white,

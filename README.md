@@ -1,26 +1,27 @@
 # ShabDiz
 
-**Synchronized open-source cinema nights — for Android.**
+**Synchronized open-source cinema nights — on Android, Windows, macOS, and Linux.**
 
-ShabDiz (شب‌دیز) is an open-source Android app for watching a scheduled movie together, at the same
-moment. The server owns the clock: join a screening at 21:32 and playback starts at minute 32, in sync
-with everyone else in the room. The app is built with Flutter and the playback engine is VLC, so MKV,
-MP4, and external subtitles all work.
+ShabDiz (شب‌دیز) is a cross-platform app for watching a scheduled movie together, at the same moment.
+The server owns the clock: join a screening at 21:32 and playback starts at minute 32, in sync with
+everyone else in the room. The app is built with Flutter and plays through libmpv, so MKV, MP4, and
+external subtitles all work on every platform.
 
 The project ships three things:
 
 | Component | Stack | Location |
 | --- | --- | --- |
-| Android app | Flutter 3 / Dart 3, Riverpod, GoRouter, VLC | [`app/`](app) |
+| Cross-platform app | Flutter 3 / Dart 3, Riverpod, GoRouter, media_kit (libmpv) | [`app/`](app) |
 | Admin panel + REST API | PHP 8 + MySQL, no framework | [`backend/`](backend) |
 | Landing page | Static HTML, Tailwind, AOS, Anime.js, Three.js | [`site/`](site) |
 
 [![Build Android APK](https://github.com/pedramgholizadeh/shabdiz-app/actions/workflows/build-apk.yml/badge.svg)](https://github.com/pedramgholizadeh/shabdiz-app/actions/workflows/build-apk.yml)
+[![Build Desktop Apps](https://github.com/pedramgholizadeh/shabdiz-app/actions/workflows/build-desktop.yml/badge.svg)](https://github.com/pedramgholizadeh/shabdiz-app/actions/workflows/build-desktop.yml)
 [![Deploy landing page](https://github.com/pedramgholizadeh/shabdiz-app/actions/workflows/pages.yml/badge.svg)](https://github.com/pedramgholizadeh/shabdiz-app/actions/workflows/pages.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e8b86d.svg)](LICENSE)
 
 - Landing page: <https://pedramgholizadeh.github.io/shabdiz-app/>
-- Latest APK: <https://github.com/pedramgholizadeh/shabdiz-app/releases/latest>
+- Latest release (APK, Windows, macOS, Linux): <https://github.com/pedramgholizadeh/shabdiz-app/releases/latest>
 
 ---
 
@@ -32,13 +33,18 @@ The project ships three things:
   Rotten Tomatoes ratings, cover art.
 - **Server-synchronized playback.** The API returns `position_seconds`; the app seeks to it on join
   and re-syncs every 15 seconds. Heartbeats keep the room count honest.
-- **Real player.** `flutter_vlc_player` with hardware acceleration, network buffering, reconnect, and
-  subtitle tracks loaded from URL. Landscape playback with immersive mode.
+- **Real player.** `media_kit` / libmpv with hardware acceleration, network buffering, reconnect, and
+  subtitle tracks loaded from URL. Immersive landscape playback on phones; a windowed player with
+  keyboard shortcuts (Space, ←/→, Esc) on desktop.
+- **Cross-platform.** One codebase builds for Android 6+, Windows x64, macOS (Apple Silicon and
+  Intel), and Linux x64/arm64. Every build talks to the same API at
+  `https://apps.webiro.ir/shabdiz/api`.
 - **Admin panel.** Create movies and screenings, set Jalali date/time, stream and subtitle URLs, and
   browse registered users.
 - **Deploy over FTP.** `deploy.sh` builds the server `.env`, uploads code, runs migrations through a
   one-time tokenized installer, and verifies the deployment with HTTP probes.
-- **CI-built APKs.** GitHub Actions analyzes, tests, builds, and publishes release APKs.
+- **CI-built binaries.** GitHub Actions analyzes, tests, builds, signs when secrets are present, and
+  publishes APKs plus desktop installers for every supported architecture.
 
 ## Screens
 
@@ -47,18 +53,23 @@ The app flow is: **splash → OTP sign-in → timeline → movie detail → sync
 ## Architecture
 
 ```
-┌──────────────────┐        HTTPS / JSON        ┌────────────────────┐
-│  Android (VLC)   │  ───────────────────────▶  │  PHP API + Admin   │
-│  Flutter app     │  ◀───────────────────────  │  (apps.webiro.ir)  │
-└──────────────────┘   timeline · join · sync   └─────────┬──────────┘
-                                                           │ PDO
-                                                 ┌─────────▼──────────┐
-                                                 │      MySQL         │
-                                                 │ movies/screenings  │
-                                                 └────────────────────┘
+┌──────────────────────┐      HTTPS / JSON      ┌────────────────────┐
+│ Android · Windows    │  ───────────────────▶  │  PHP API + Admin   │
+│ macOS · Linux        │  ◀───────────────────  │  (apps.webiro.ir)  │
+│ Flutter + libmpv     │  timeline · join · sync│                    │
+└──────────────────────┘                        └─────────┬──────────┘
+                                                          │ PDO
+                                                ┌─────────▼──────────┐
+                                                │       MySQL        │
+                                                │ movies/screenings  │
+                                                └────────────────────┘
 
-GitHub Actions ──▶ release APK       GitHub Pages ──▶ site/
+GitHub Actions ──▶ APK · .exe · .dmg · .zip · .deb · .tar.gz
+GitHub Pages   ──▶ site/
 ```
+
+Every platform consumes the same API contract; `API_BASE_URL` is the only build-time difference and
+defaults to the production endpoint, so shipped binaries work against `apps.webiro.ir/shabdiz`.
 
 **Synchronization model.** Screenings are stored in UTC. On join, the API computes
 `now − starts_at_utc` and returns that position with the stream and subtitle URLs. The client seeks
@@ -68,11 +79,15 @@ joiners, paused devices, and reconnects all land on the same timeline.
 ## Repository layout
 
 ```
-app/                     Flutter Android app (minSdk 23 / Android 6)
+app/                     Flutter app (Android 6+, Windows x64, macOS, Linux)
   lib/core/              config, theme, router, network, storage, dates
   lib/data/              API models and repositories
   lib/features/          splash, auth, timeline, movie, player
   test/                  model and date unit tests
+  android/               Android runner and signing config
+  windows/               Win32 runner (CMake)
+  macos/                 Xcode runner, entitlements, Info.plist
+  linux/                 GTK runner, CMake, desktop entry
 backend/                 PHP 8 admin panel and JSON API
   app/Core/              router, request/response, PDO, auth, views
   app/Http/Controllers/  Admin/* and Api/*
@@ -82,7 +97,7 @@ backend/                 PHP 8 admin panel and JSON API
   migrations/            additive SQL migrations
   public/                front controller and hardened .htaccess
 site/                    static Persian landing page for GitHub Pages
-.github/workflows/       APK build/release and Pages deployment
+.github/workflows/       APK, desktop, and Pages workflows
 deploy.sh                FTP deployment (code, env, install, checks)
 config.env.example       template for deployment secrets (never commit config.env)
 docs/API.md              API contract and sync algorithm
@@ -91,28 +106,52 @@ AGENTS.md                contributor and AI-agent handbook
 
 ## Quick start
 
-### Android app
+### App
 
-Requirements: Flutter 3.47+ and an Android SDK with platform tools. JDK 17+.
+Requirements: Flutter 3.47+ and a platform toolchain — Android SDK + JDK 17, Visual Studio with
+"Desktop development with C++" on Windows, Xcode + CocoaPods on macOS, or `clang`, `cmake`,
+`ninja-build`, `pkg-config`, `libgtk-3-dev`, and `libmpv-dev` on Linux.
 
 ```bash
 cd app
 flutter pub get
 flutter test
-flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8080/api
+flutter run -d android --dart-define=API_BASE_URL=http://10.0.2.2:8080/api
+flutter run -d macos   # or windows, linux
 ```
 
-`API_BASE_URL` defaults to `https://apps.webiro.ir/shabdiz/api`. For the Android emulator,
-`10.0.2.2` reaches the host machine.
+Release builds:
 
-Release builds use `app/android/key.properties` when present; otherwise they fall back to debug
-signing so local builds keep working:
+```bash
+flutter build apk --release
+flutter build windows --release
+flutter build macos --release
+flutter build linux --release
+```
+
+`API_BASE_URL` defaults to `https://apps.webiro.ir/shabdiz/api`, so published binaries need no extra
+flags. For the Android emulator, `10.0.2.2` reaches the host machine.
+
+Desktop players use libmpv: media_kit ships it on Windows and macOS, while Linux links the system
+`libmpv2` package (`sudo apt install libmpv2`). Windows ARM64 machines run the x64 build through the
+built-in emulation layer.
+
+Android release builds use `app/android/key.properties` when present; otherwise they fall back to
+debug signing so local builds keep working:
 
 ```properties
 storePassword=...
 keyPassword=...
 keyAlias=shabdiz
 storeFile=/absolute/path/to/shabdiz-release.jks
+```
+
+Create the keystore with the project identity:
+
+```bash
+keytool -genkeypair -v -keystore shabdiz-release.jks -keyalg RSA -keysize 4096 \
+  -validity 10000 -alias shabdiz \
+  -dname "CN=Pedram Gholizadeh, O=WEBIRO, L=Tehran, ST=Tehran, C=IR"
 ```
 
 ### Backend
@@ -174,9 +213,25 @@ file safe and stable across deploys.
 
 - `.github/workflows/build-apk.yml` runs `flutter analyze`, `flutter test`, and builds a universal
   APK plus per-ABI APKs. Pushing a `v*` tag publishes them to a GitHub Release.
+- `.github/workflows/build-desktop.yml` builds every desktop target in a matrix and uploads one
+  artifact per platform/architecture:
+
+  | Artifact | Runner | Output |
+  | --- | --- | --- |
+  | `shabdiz-macos-arm64` | `macos-15` | `.dmg`, `.zip` (Apple Silicon) |
+  | `shabdiz-macos-x64` | `macos-15-intel` | `.dmg`, `.zip` (Intel) |
+  | `shabdiz-windows-x64` | `windows-latest` | `.zip` with `shabdiz.exe` |
+  | `shabdiz-linux-x64` | `ubuntu-24.04` | `.deb`, `.tar.gz` (amd64) |
+  | `shabdiz-linux-arm64` | `ubuntu-24.04-arm` | `.deb`, `.tar.gz` (arm64) |
+
+  Tag pushes attach every file to the same release as the APKs.
 - `.github/workflows/pages.yml` publishes `site/` to GitHub Pages.
 
-Optional repository secrets for signed release builds:
+All shipped binaries are attributed to **Pedram Gholizadeh (WEBIRO), Tehran, Iran — webiro.ir**, and
+are preconfigured for the production API. Code signing is optional; without certificates the macOS
+build is ad-hoc signed (users right-click → Open) and the Windows build is unsigned.
+
+Optional repository secrets:
 
 | Secret | Value |
 | --- | --- |
@@ -184,8 +239,15 @@ Optional repository secrets for signed release builds:
 | `ANDROID_KEYSTORE_PASSWORD` | Keystore password |
 | `ANDROID_KEY_PASSWORD` | Key password |
 | `ANDROID_KEY_ALIAS` | Key alias |
+| `WINDOWS_PFX_BASE64` | Base64 of an Authenticode `.pfx` |
+| `WINDOWS_PFX_PASSWORD` | Password for that `.pfx` |
+| `MACOS_CERTIFICATE_BASE64` | Base64 Developer ID Application `.p12` |
+| `MACOS_CERTIFICATE_PASSWORD` | Password for that `.p12` |
+| `APPLE_ID` / `APPLE_APP_SPECIFIC_PASSWORD` | Notarization credentials (`notarytool`) |
+| `APPLE_TEAM_ID` | Apple Developer team identifier |
 
-Without them, CI produces a debug-signed APK — installable, but not suitable for store distribution.
+Without Android secrets, CI produces a debug-signed APK — installable, but not suitable for store
+distribution.
 
 Enable Pages under **Settings → Pages → Source: GitHub Actions**. The workflow also requests
 automatic enablement, but if the first run fails at *Configure Pages*, enable it once in the
@@ -238,4 +300,4 @@ can regress.
 
 ## License
 
-[MIT](LICENSE) © 2026 Pedram Gholizadeh
+[MIT](LICENSE) © 2026 Pedram Gholizadeh (WEBIRO), Tehran, Iran

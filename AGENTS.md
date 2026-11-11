@@ -7,13 +7,16 @@ Read it before writing code, and keep it current when architecture or invariants
 
 ## 1. Mission
 
-ShabDiz (شب‌دیز) is an open-source Android app for **scheduled, synchronized movie nights**.
+ShabDiz (شب‌دیز) is an open-source, cross-platform app for **scheduled, synchronized movie nights**
+(Android, Windows, macOS, Linux).
 
 - Users sign in with **email + one-time code**.
 - Screenings have a fixed, published start time (stored in UTC, displayed in Jalali/Tehran).
 - A user who joins late starts at the server-owned position, not at 00:00.
 - An admin panel manages movies, screenings, stream URLs, subtitles, and users.
-- Anyone can download the APK; the APK is produced by GitHub Actions.
+- Anyone can download the app; every binary is produced by GitHub Actions.
+- Playback uses `media_kit` (libmpv) on all platforms.
+- Everything is attributed to **Pedram Gholizadeh (WEBIRO), Tehran, Iran — webiro.ir**.
 
 Optimize for a calm, cinematic experience and for a small, auditable server surface. This project
 is infrastructure-complete, not feature-complete: keep the architecture intact when extending it.
@@ -24,13 +27,13 @@ is infrastructure-complete, not feature-complete: keep the architecture intact w
 
 | Area | State |
 | --- | --- |
-| Flutter app | Splash, OTP auth, timeline, movie details, synchronized VLC player |
+| Flutter app | Splash, OTP auth, timeline, movie details, synchronized libmpv player on Android/Windows/macOS/Linux |
 | Admin panel | Login, dashboard, movie create/list, screening create/list, users list |
 | API | Health, OTP, me, timeline, movie detail, join, playback timeline, heartbeat |
 | Database | Migrations applied by the installer; seed categories |
 | Landing page | Persian, RTL, static, deployed to GitHub Pages |
 | Deployment | FTP via `deploy.sh` with tokenized self-deleting installer |
-| CI | APK build/release workflow; Pages workflow |
+| CI | APK build/release, desktop matrix (macOS arm64/x64, Windows x64, Linux arm64/x64), Pages |
 | Not built yet | Watch history, notifications, room chat, profile editing, password reset |
 
 Treat the table as a map, not a promise. Update it when a row changes.
@@ -40,8 +43,8 @@ Treat the table as a map, not a promise. Update it when a row changes.
 ## 3. Repository map
 
 ```
-app/                        Flutter application
-  lib/main.dart             entry point
+app/                        Flutter application (Android, Windows, macOS, Linux)
+  lib/main.dart             entry point; MediaKit.ensureInitialized()
   lib/app.dart              MaterialApp.router, fa_IR, RTL
   lib/core/config/          API base URL and timing constants
   lib/core/network/         Dio client, bearer-token interceptor, errors
@@ -55,9 +58,13 @@ app/                        Flutter application
   lib/features/auth/        email + OTP flow
   lib/features/timeline/    screening cards, newest first
   lib/features/movie/       detail page
-  lib/features/player/      VLC player, seek/resync/heartbeat
+  lib/features/player/      media_kit player, seek/resync/heartbeat
   lib/widgets/              shared visual components
   test/                     pure-Dart unit tests
+  android/                  Android runner and signing config
+  windows/                  Win32 runner (CMake, Runner.rc metadata)
+  macos/                    Xcode runner, entitlements, Info.plist
+  linux/                    GTK runner, CMake, .desktop entry
 
 backend/                    PHP 8 admin panel + JSON API
   app/bootstrap.php         root constant, autoloader, helpers, .env, session, headers
@@ -74,7 +81,7 @@ backend/                    PHP 8 admin panel + JSON API
   public/uploads/           upload area; denies script execution
 
 site/                       static GitHub Pages landing page
-.github/workflows/          build-apk.yml, pages.yml
+.github/workflows/          build-apk.yml, build-desktop.yml, pages.yml
 deploy.sh                   FTP deploy: code, env, setup, check, all
 config.env.example          deployment template (real config.env is ignored)
 docs/API.md                 endpoint contract and sync algorithm
@@ -92,8 +99,16 @@ flutter pub get
 flutter analyze                 # must report no issues
 flutter test                    # must pass
 flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8080/api
+flutter run -d macos            # or windows, linux
 flutter build apk --release
+flutter build windows --release
+flutter build macos --release
+flutter build linux --release
 ```
+
+Desktop toolchains: Xcode + CocoaPods on macOS; Visual Studio C++ workload on Windows; `clang`,
+`cmake`, `ninja-build`, `pkg-config`, `libgtk-3-dev`, `libmpv-dev` on Linux. media_kit bundles libmpv
+on Windows/macOS; Linux links the system `libmpv2`.
 
 ### Backend
 
@@ -170,7 +185,8 @@ python3 -m http.server 4173 -d site
 - Riverpod providers live next to their repository; widgets read providers, not Dio directly.
 - Models are immutable and parse defensively (`json_utils.dart`).
 - Route guards redirect unauthenticated users to `/auth` and authenticated users away from it.
-- The player owns orientation and immersive mode; restore both on dispose.
+- The player owns orientation and immersive mode on mobile only (`defaultTargetPlatform` gate) and
+  restores both on dispose. Desktop playback is windowed with keyboard controls.
 - UI text is Persian; code identifiers and comments are English.
 
 ---
@@ -219,6 +235,21 @@ If a change requires a new secret, add it to `config.env.example` as an empty pl
 - Optional keystore from `ANDROID_KEYSTORE_*` secrets; otherwise debug signing.
 - Artifacts: universal APK and per-ABI APKs.
 - Tags publish a GitHub Release.
+
+`build-desktop.yml`:
+
+- Same triggers as the APK workflow. Builds a matrix: `macos-15` (arm64), `macos-15-intel` (x64),
+  `windows-latest` (x64), `ubuntu-24.04` (x64), `ubuntu-24.04-arm` (arm64).
+- Every build passes `--dart-define=API_BASE_URL=https://apps.webiro.ir/shabdiz/api`, so desktop
+  artifacts talk to production without configuration.
+- macOS produces `.app` → `.zip` (`ditto`) and `.dmg` (`hdiutil`), ad-hoc signed unless
+  `MACOS_CERTIFICATE_BASE64` + `MACOS_CERTIFICATE_PASSWORD` exist, then optionally notarized when
+  `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, and `APPLE_TEAM_ID` are set.
+- Windows produces a `.zip`; `signtool` runs only when `WINDOWS_PFX_BASE64` is present.
+- Linux produces `.deb` and `.tar.gz`; `.deb` depends on `libmpv2 | libmpv1`.
+- Windows ARM64 is intentionally absent: the bundled libmpv is x86_64 only, and the x64 build runs
+  under Windows' emulation layer.
+- Tags publish all artifacts to one GitHub Release.
 
 `pages.yml`:
 

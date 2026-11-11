@@ -48,7 +48,7 @@
         <div class="field full">
             <label for="source_url">لینک پخش *</label>
             <input id="source_url" name="source_url" required dir="ltr" placeholder="https://cdn.example.com/movie.mkv">
-            <span class="hint">لینک مستقیم یا HLS سرور ایران. پخش با VLC انجام می‌شود و MKV/MP4/… پشتیبانی می‌شود.</span>
+            <span class="hint">لینک مستقیم یا HLS سرور ایران. پخش با پلیر mpv انجام می‌شود و MKV/MP4/… پشتیبانی می‌شود.</span>
         </div>
         <div class="field">
             <label for="subtitle_url">لینک زیرنویس</label>

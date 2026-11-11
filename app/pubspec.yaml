@@ -15,9 +15,11 @@ dependencies:
   dio: ^5.11.1
   flutter_riverpod: ^3.5.0
   flutter_secure_storage: ^11.2.0
-  flutter_vlc_player: ^7.4.4
   go_router: ^18.1.4
   intl: ^0.20.3
+  media_kit: ^1.2.6
+  media_kit_libs_video: ^1.0.7
+  media_kit_video: ^2.0.1
   shamsi_date: ^1.1.1
   shared_preferences: ^2.5.6
 
