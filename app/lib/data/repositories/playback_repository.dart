@@ -20,8 +20,13 @@ class PlaybackRepository {
     return PlaybackSync.fromJson(unwrapData(response));
   }
 
-  Future<void> heartbeat(int screeningId) async {
-    await _dio.post<dynamic>('/screenings/$screeningId/heartbeat');
+  Future<void> heartbeat(int screeningId, {int? positionSeconds}) async {
+    await _dio.post<dynamic>(
+      '/screenings/$screeningId/heartbeat',
+      data: positionSeconds == null
+          ? null
+          : {'position_seconds': positionSeconds},
+    );
   }
 }
 

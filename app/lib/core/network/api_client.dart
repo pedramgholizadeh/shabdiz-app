@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../config/app_config.dart';
+import '../storage/session.dart';
 import '../storage/token_store.dart';
 
 final tokenStoreProvider = Provider<TokenStore>((ref) => TokenStore());
@@ -26,6 +27,15 @@ final apiClientProvider = Provider<Dio>((ref) {
           options.headers['Authorization'] = 'Bearer $token';
         }
         handler.next(options);
+      },
+      onError: (error, handler) async {
+        // An expired or revoked token must not strand the user: drop it so
+        // the next launch starts fresh (as guest or at the login screen).
+        if (error.response?.statusCode == 401) {
+          await tokenStore.clear();
+          ref.read(currentUserProvider.notifier).set(null);
+        }
+        handler.next(error);
       },
     ),
   );

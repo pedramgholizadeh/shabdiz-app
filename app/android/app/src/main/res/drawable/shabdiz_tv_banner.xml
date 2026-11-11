@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android TV launcher banner (320x180): gold play mark on the brand's
+     near-black background, matching the in-app BrandMark. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="320dp"
+    android:height="180dp"
+    android:viewportWidth="320"
+    android:viewportHeight="180">
+    <path
+        android:fillColor="#08080C"
+        android:pathData="M0,0h320v180h-320z" />
+    <path
+        android:fillColor="#1A1410"
+        android:pathData="M0,0h320v180h-320z" />
+    <path
+        android:fillColor="#E8B86D"
+        android:pathData="M134,54 H186 A12,12 0 0 1 198,66 V114 A12,12 0 0 1 186,126 H134 A12,12 0 0 1 122,114 V66 A12,12 0 0 1 134,54 Z" />
+    <path
+        android:fillColor="#08080C"
+        android:pathData="M155,76 L173,90 L155,104 Z" />
+</vector>

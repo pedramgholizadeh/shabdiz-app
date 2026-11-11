@@ -2,6 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shabdiz/core/utils/dates.dart';
 import 'package:shabdiz/data/models/movie.dart';
 import 'package:shabdiz/data/models/screening.dart';
+import 'package:shabdiz/data/models/user.dart';
+import 'package:shabdiz/data/models/watch_history_item.dart';
 
 void main() {
   test('Movie parses API payload', () {
@@ -45,5 +47,56 @@ void main() {
     final date = DateTime.utc(2026, 11, 21, 17, 30);
     expect(Dates.jalaliDate(date), '1405/08/30');
     expect(Dates.clock(date), '21:00');
+  });
+
+  test('User flags guest accounts from the API payload', () {
+    final guest = User.fromJson({
+      'id': 12,
+      'email': null,
+      'name': 'مهمان',
+      'is_guest': true,
+    });
+    final member = User.fromJson({
+      'id': 13,
+      'email': 'user@example.com',
+      'name': 'کاربر',
+      'is_guest': 0,
+    });
+
+    expect(guest.isGuest, isTrue);
+    expect(guest.email, isEmpty);
+    expect(member.isGuest, isFalse);
+    expect(User.fromJson({'id': 1}).isGuest, isFalse);
+  });
+
+  test('WatchHistoryItem parses progress rows', () {
+    final item = WatchHistoryItem.fromJson({
+      'screening_id': 9,
+      'movie_slug': 'odyssey',
+      'movie_title_fa': 'اودیسه',
+      'cover_url': 'https://cdn.example.com/cover.jpg',
+      'position_seconds': 5400,
+      'duration_seconds': 9000,
+      'percent': 60,
+      'completed': false,
+      'starts_at_label': 'شنبه ۳۰ آبان · ۲۱:۰۰',
+    });
+
+    expect(item.movieSlug, 'odyssey');
+    expect(item.percent, 60);
+    expect(item.completed, isFalse);
+
+    final completed = WatchHistoryItem.fromJson({
+      'screening_id': 9,
+      'movie_slug': 'odyssey',
+      'movie_title_fa': 'اودیسه',
+      'cover_url': '',
+      'position_seconds': 9000,
+      'duration_seconds': 9000,
+      'percent': 100,
+      'completed': true,
+      'starts_at_label': '',
+    });
+    expect(completed.completed, isTrue);
   });
 }

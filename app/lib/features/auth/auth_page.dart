@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/network/api_client.dart';
+import '../../core/storage/session.dart';
 import '../../core/theme/app_colors.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../widgets/brand_mark.dart';
@@ -61,10 +62,19 @@ class _AuthPageState extends ConsumerState<AuthPage> {
 
   Future<void> _verify() async {
     await _run(() async {
-      await ref.read(authRepositoryProvider).verifyOtp(
+      final user = await ref.read(authRepositoryProvider).verifyOtp(
             _emailController.text.trim(),
             _codeController.text.trim(),
           );
+      ref.read(currentUserProvider.notifier).set(user);
+      if (mounted) context.go('/timeline');
+    });
+  }
+
+  Future<void> _signInAsGuest() async {
+    await _run(() async {
+      final user = await ref.read(authRepositoryProvider).signInAsGuest();
+      ref.read(currentUserProvider.notifier).set(user);
       if (mounted) context.go('/timeline');
     });
   }
@@ -169,10 +179,25 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                       )
                     : Text(_codeStep ? 'ورود به شب‌دیز' : 'دریافت کد ورود'),
               ),
+              const SizedBox(height: 12),
+              OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.gold,
+                  side: const BorderSide(color: AppColors.border),
+                  minimumSize: const Size.fromHeight(52),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                onPressed: _busy ? null : _signInAsGuest,
+                child: const Text('ورود به عنوان مهمان'),
+              ),
               const SizedBox(height: 28),
-              const Text(
-                'با ورود، قوانین استفاده و حریم خصوصی شب‌دیز را می‌پذیرید.',
-                style: TextStyle(
+              Text(
+                _codeStep
+                    ? 'با ورود، قوانین استفاده و حریم خصوصی شب‌دیز را می‌پذیرید.'
+                    : 'می‌توانید بدون حساب هم فیلم‌ها را به‌عنوان مهمان تماشا کنید؛ برای امکانات بیشتر بعداً وارد شوید.',
+                style: const TextStyle(
                   fontFamily: 'Vazirmatn',
                   fontSize: 11,
                   height: 1.8,

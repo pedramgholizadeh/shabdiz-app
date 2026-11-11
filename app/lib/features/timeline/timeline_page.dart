@@ -3,8 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/network/api_client.dart';
+import '../../core/storage/session.dart';
 import '../../core/theme/app_colors.dart';
-import '../../data/repositories/auth_repository.dart';
+import '../../core/utils/breakpoints.dart';
 import '../../data/repositories/movie_repository.dart';
 import '../../widgets/brand_mark.dart';
 import '../../widgets/screening_card.dart';
@@ -15,6 +16,9 @@ class TimelinePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final timeline = ref.watch(timelineProvider);
+    final user = ref.watch(currentUserProvider);
+    final width = MediaQuery.sizeOf(context).width;
+    final wide = isWide(width);
 
     return Scaffold(
       body: SafeArea(
@@ -28,14 +32,44 @@ class TimelinePage extends ConsumerWidget {
                 children: [
                   const BrandMark(compact: true),
                   const Spacer(),
-                  IconButton(
-                    tooltip: 'خروج',
-                    onPressed: () async {
-                      await ref.read(authRepositoryProvider).logout();
-                      if (context.mounted) context.go('/auth');
-                    },
-                    icon: const Icon(Icons.logout_rounded, size: 20),
-                  ),
+                  if (user == null)
+                    FilledButton.tonal(
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size(0, 40),
+                        padding: const EdgeInsets.symmetric(horizontal: 18),
+                        backgroundColor: AppColors.surfaceAlt,
+                        foregroundColor: AppColors.gold,
+                        textStyle: const TextStyle(
+                          fontFamily: 'Vazirmatn',
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      onPressed: () => context.push('/auth'),
+                      child: const Text('ورود'),
+                    )
+                  else if (user.isGuest)
+                    FilledButton.tonal(
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size(0, 40),
+                        padding: const EdgeInsets.symmetric(horizontal: 18),
+                        backgroundColor: AppColors.surfaceAlt,
+                        foregroundColor: AppColors.gold,
+                        textStyle: const TextStyle(
+                          fontFamily: 'Vazirmatn',
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      onPressed: () => context.push('/auth'),
+                      child: const Text('ورود با ایمیل'),
+                    )
+                  else
+                    IconButton(
+                      tooltip: 'حساب کاربری',
+                      onPressed: () => context.push('/account'),
+                      icon: const Icon(Icons.account_circle_rounded, size: 24),
+                    ),
                 ],
               ),
               const SizedBox(height: 26),
@@ -66,21 +100,57 @@ class TimelinePage extends ConsumerWidget {
                       color: AppColors.gold,
                       backgroundColor: AppColors.surface,
                       onRefresh: () => ref.refresh(timelineProvider.future),
-                      child: ListView.separated(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.only(bottom: 24),
-                        itemCount: items.length,
-                        separatorBuilder: (_, _) =>
-                            const SizedBox(height: 12),
-                        itemBuilder: (context, index) {
-                          final screening = items[index];
-                          return ScreeningCard(
-                            screening: screening,
-                            onTap: () => context.push(
-                              '/movie/${screening.movie.slug}',
-                            ),
-                          );
-                        },
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth:
+                                wide ? kMaxGridWidth : kMaxContentWidth,
+                          ),
+                          child: wide
+                              ? GridView.builder(
+                                  physics:
+                                      const AlwaysScrollableScrollPhysics(),
+                                  padding: const EdgeInsets.only(bottom: 24),
+                                  gridDelegate:
+                                      const SliverGridDelegateWithMaxCrossAxisExtent(
+                                    maxCrossAxisExtent: 420,
+                                    mainAxisExtent: 176,
+                                    crossAxisSpacing: 14,
+                                    mainAxisSpacing: 14,
+                                  ),
+                                  itemCount: items.length,
+                                  itemBuilder: (context, index) {
+                                    final screening = items[index];
+                                    return SizedBox(
+                                      height: 176,
+                                      child: ScreeningCard(
+                                        screening: screening,
+                                        onTap: () => context.push(
+                                          '/movie/${screening.movie.slug}',
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                )
+                              : ListView.separated(
+                                  physics:
+                                      const AlwaysScrollableScrollPhysics(),
+                                  padding:
+                                      const EdgeInsets.only(bottom: 24),
+                                  itemCount: items.length,
+                                  separatorBuilder: (_, _) =>
+                                      const SizedBox(height: 12),
+                                  itemBuilder: (context, index) {
+                                    final screening = items[index];
+                                    return ScreeningCard(
+                                      screening: screening,
+                                      onTap: () => context.push(
+                                        '/movie/${screening.movie.slug}',
+                                      ),
+                                    );
+                                  },
+                                ),
+                        ),
                       ),
                     );
                   },

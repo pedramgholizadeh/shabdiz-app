@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/network/api_client.dart';
+import '../../core/storage/session.dart';
 import '../../core/theme/app_colors.dart';
+import '../../data/repositories/auth_repository.dart';
 import '../../widgets/brand_mark.dart';
 
 class SplashPage extends ConsumerStatefulWidget {
@@ -28,13 +30,27 @@ class _SplashPageState extends ConsumerState<SplashPage>
   }
 
   Future<void> _bootstrap() async {
-    final results = await Future.wait([
+    await Future.wait([
       Future<void>.delayed(const Duration(milliseconds: 1800)),
-      ref.read(tokenStoreProvider).readToken(),
+      _restoreSession(),
     ]);
     if (!mounted) return;
-    final token = results[1] as String?;
-    context.go(token == null || token.isEmpty ? '/auth' : '/timeline');
+    // Signing in is never forced: guests land on the timeline too.
+    context.go('/timeline');
+  }
+
+  Future<void> _restoreSession() async {
+    final tokenStore = ref.read(tokenStoreProvider);
+    final session = ref.read(currentUserProvider.notifier);
+    final token = await tokenStore.readToken();
+    // Instant identity from the local cache while /me validates the token.
+    session.set(
+        (token != null && token.isNotEmpty) ? await tokenStore.readUser() : null);
+    try {
+      session.set(await ref.read(authRepositoryProvider).me());
+    } catch (_) {
+      // Offline or server hiccup: keep the cached identity and continue.
+    }
   }
 
   @override

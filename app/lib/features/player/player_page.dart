@@ -31,6 +31,7 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   StreamSubscription<String>? _errorSubscription;
   Timer? _syncTimer;
   Timer? _heartbeatTimer;
+  Timer? _hideControlsTimer;
   PlaybackTicket? _ticket;
   String? _error;
   bool _loading = true;
@@ -60,6 +61,8 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   void dispose() {
     _syncTimer?.cancel();
     _heartbeatTimer?.cancel();
+    _hideControlsTimer?.cancel();
+    _sendFinalHeartbeat();
     _errorSubscription?.cancel();
     _player?.dispose();
     if (_isMobile) {
@@ -69,12 +72,26 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
     super.dispose();
   }
 
+  /// Records the last watched position before teardown; fire-and-forget.
+  void _sendFinalHeartbeat() {
+    final player = _player;
+    if (player == null) return;
+    final position = player.state.position.inSeconds;
+    unawaited(
+      ref
+          .read(playbackRepositoryProvider)
+          .heartbeat(widget.screeningId, positionSeconds: position)
+          .then((_) {}, onError: (_) {}),
+    );
+  }
+
   Future<void> _load() async {
     setState(() {
       _loading = true;
       _error = null;
       _ended = false;
     });
+    _hideControlsTimer?.cancel();
     await _errorSubscription?.cancel();
     await _player?.dispose();
     _player = null;
@@ -165,10 +182,14 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
   }
 
   Future<void> _heartbeat() async {
+    final player = _player;
     try {
       await ref
           .read(playbackRepositoryProvider)
-          .heartbeat(widget.screeningId);
+          .heartbeat(
+            widget.screeningId,
+            positionSeconds: player?.state.position.inSeconds,
+          );
     } catch (_) {
       // The next successful sync re-establishes presence.
     }
@@ -195,17 +216,69 @@ class _PlayerPageState extends ConsumerState<PlayerPage> {
 
   void _togglePlay() {
     _player?.playOrPause();
+    _showControlsTemporarily();
+  }
+
+  /// Reveal the controls and auto-hide them shortly after — the 10-foot TV
+  /// flow relies on keys rather than taps, so controls must dismiss themselves.
+  void _showControlsTemporarily() {
+    if (!mounted) return;
+    setState(() => _controlsVisible = true);
+    _hideControlsTimer?.cancel();
+    _hideControlsTimer = Timer(const Duration(seconds: 4), () {
+      if (mounted && (_player?.state.playing ?? false)) {
+        setState(() => _controlsVisible = false);
+      }
+    });
   }
 
   KeyEventResult _handleKey(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
-    if (event.logicalKey == LogicalKeyboardKey.escape) {
+    final key = event.logicalKey;
+
+    if (key == LogicalKeyboardKey.escape ||
+        key == LogicalKeyboardKey.goBack ||
+        key == LogicalKeyboardKey.browserBack) {
+      if (!_controlsVisible) {
+        _showControlsTemporarily();
+        return KeyEventResult.handled;
+      }
       context.pop();
       return KeyEventResult.handled;
     }
-    if (event.logicalKey == LogicalKeyboardKey.space) {
+
+    const playPauseKeys = [
+      LogicalKeyboardKey.space,
+      LogicalKeyboardKey.enter,
+      LogicalKeyboardKey.numpadEnter,
+      LogicalKeyboardKey.select,
+      LogicalKeyboardKey.mediaPlayPause,
+      LogicalKeyboardKey.mediaPlay,
+      LogicalKeyboardKey.mediaPause,
+      LogicalKeyboardKey.gameButtonA,
+    ];
+    if (playPauseKeys.contains(key)) {
       _togglePlay();
       return KeyEventResult.handled;
+    }
+
+    // The server owns the clock, so arrows never seek: they only surface the
+    // controls (TV remotes send arrows from the D-pad). While the controls
+    // are visible, arrows are left to the focus traversal between buttons.
+    const revealKeys = [
+      LogicalKeyboardKey.arrowUp,
+      LogicalKeyboardKey.arrowDown,
+      LogicalKeyboardKey.arrowLeft,
+      LogicalKeyboardKey.arrowRight,
+      LogicalKeyboardKey.mediaStepForward,
+      LogicalKeyboardKey.mediaStepBackward,
+    ];
+    if (revealKeys.contains(key)) {
+      if (!_controlsVisible) {
+        _showControlsTemporarily();
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored;
     }
     return KeyEventResult.ignored;
   }
