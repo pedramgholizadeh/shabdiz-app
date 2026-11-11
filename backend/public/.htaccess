@@ -7,6 +7,10 @@ DirectoryIndex index.php
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
+    # The bare deployment root points visitors to the open-source repository.
+    # The admin panel and API stay reachable at /admin and /api/*.
+    RewriteRule ^$ https://github.com/pedramgholizadeh/shabdiz-app [R=302,L]
+
     # Preserve the Authorization header for the Bearer-token API.
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
