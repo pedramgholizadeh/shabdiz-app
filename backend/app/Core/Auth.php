@@ -84,7 +84,7 @@ final class Auth
         }
         $hash = hash('sha256', $token);
         $user = Database::first(
-            'SELECT u.id, u.email, u.name, u.is_active, u.is_guest, t.id AS token_id
+            'SELECT u.id, u.email, u.name, u.is_active, u.is_guest, u.created_at, t.id AS token_id
              FROM auth_tokens t
              JOIN users u ON u.id = t.user_id
              WHERE t.token_hash = ? AND t.expires_at > UTC_TIMESTAMP()
