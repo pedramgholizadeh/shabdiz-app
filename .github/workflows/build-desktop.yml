@@ -76,8 +76,14 @@ jobs:
           sudo pkill -9 -f "apt-get" 2>/dev/null || true
           sudo dpkg --configure -a || true
           sudo rm -f /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock /var/lib/apt/lists/lock /var/cache/apt/archives/lock
+          if [ -n "${http_proxy:-}" ]; then
+            echo "Acquire::http::Proxy \"$http_proxy\";" | sudo tee /etc/apt/apt.conf.d/99proxy >/dev/null
+          fi
+          sudo sed -i -E 's|URIs: http://|URIs: https://|g' /etc/apt/sources.list.d/*.sources 2>/dev/null || true
+          sudo sed -i -E 's|http://|https://|g' /etc/apt/sources.list 2>/dev/null || true
+          grep -rhE '^(URIs|deb) ' /etc/apt/sources.list /etc/apt/sources.list.d/*.sources 2>/dev/null | head -5 || true
           echo "--- archive reachability"
-          curl -sS -o /dev/null -w "archive.ubuntu.com -> %{http_code} in %{time_total}s\n" --max-time 30 http://archive.ubuntu.com/ubuntu/ || true
+          curl -sS -o /dev/null -w "https archive -> %{http_code} in %{time_total}s\n" --max-time 30 https://azure.archive.ubuntu.com/ubuntu/ || true
           timeout 240 sudo -E apt-get "${APT_OPTS[@]}" update || echo "apt update failed; falling back to cached lists"
           timeout 600 sudo -E apt-get "${APT_OPTS[@]}" install -y --no-install-recommends \
             clang cmake ninja-build pkg-config \
